@@ -1,0 +1,185 @@
+{
+  "info": {
+    "name": "FieldOps API",
+    "description": "Collection para testar os endpoints da API FieldOps.\n\nVariáveis:\n- `baseUrl`: URL base da API (default: http://localhost:8080)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Infra",
+      "description": "Endpoints de infraestrutura e monitoramento.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Swagger UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/swagger-ui/index.html",
+              "host": ["{{baseUrl}}"],
+              "path": ["swagger-ui", "index.html"]
+            }
+          }
+        },
+        {
+          "name": "OpenAPI JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v3/api-docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["v3", "api-docs"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Handling Tests",
+      "description": "Testes manuais para validar o formato canônico de erro (ApiError) e o filtro de RequestId.",
+      "item": [
+        {
+          "name": "404 — Rota inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 500 (no matching route)', function() {",
+                  "    pm.response.to.have.status(500);",
+                  "});",
+                  "",
+                  "pm.test('Response has canonical ApiError format', function() {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('timestamp');",
+                  "    pm.expect(json).to.have.property('status');",
+                  "    pm.expect(json).to.have.property('code');",
+                  "    pm.expect(json).to.have.property('message');",
+                  "    pm.expect(json).to.have.property('path');",
+                  "    pm.expect(json).to.have.property('requestId');",
+                  "    pm.expect(json).to.have.property('fieldErrors');",
+                  "});",
+                  "",
+                  "pm.test('X-Request-Id header is present', function() {",
+                  "    pm.response.to.have.header('X-Request-Id');",
+                  "});",
+                  "",
+                  "pm.test('No stack trace leaked', function() {",
+                  "    var body = pm.response.text();",
+                  "    pm.expect(body).to.not.include('stackTrace');",
+                  "    pm.expect(body).to.not.include('java.lang');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "postman-test-{{$randomUUID}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/nonexistent",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "nonexistent"]
+            }
+          }
+        },
+        {
+          "name": "RequestId — Client-provided",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('X-Request-Id matches what we sent', function() {",
+                  "    pm.expect(pm.response.headers.get('X-Request-Id')).to.eql('my-custom-trace-id');",
+                  "});",
+                  "",
+                  "pm.test('requestId in body matches header', function() {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.requestId).to.eql('my-custom-trace-id');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "my-custom-trace-id",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/nonexistent",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "nonexistent"]
+            }
+          }
+        },
+        {
+          "name": "RequestId — Auto-generated",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('X-Request-Id header is auto-generated', function() {",
+                  "    var rid = pm.response.headers.get('X-Request-Id');",
+                  "    pm.expect(rid).to.be.a('string');",
+                  "    pm.expect(rid.length).to.be.above(10);",
+                  "});",
+                  "",
+                  "pm.test('requestId in body matches header', function() {",
+                  "    var json = pm.response.json();",
+                  "    var rid = pm.response.headers.get('X-Request-Id');",
+                  "    pm.expect(json.requestId).to.eql(rid);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/nonexistent",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "nonexistent"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
