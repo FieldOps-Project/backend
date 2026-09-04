@@ -6,13 +6,12 @@ import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.infrastructure.filter.RequestIdFilter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.*;
 
 import static org.hamcrest.Matchers.*;
@@ -25,12 +24,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Uses a tiny fake controller declared as an inner class to trigger
  * each exception type without depending on real business controllers.</p>
  */
-@WebMvcTest(controllers = GlobalExceptionHandlerTest.FakeController.class)
-@Import({GlobalExceptionHandler.class, RequestIdFilter.class})
 class GlobalExceptionHandlerTest {
 
-    @Autowired
     private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(new FakeController())
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .addFilters(new RequestIdFilter())
+                .build();
+    }
 
     // ── Fake controller used exclusively by these tests ─────────────────
 
