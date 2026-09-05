@@ -63,6 +63,13 @@ public class UserService {
         return updateStatus(id, UserStatus.INACTIVE);
     }
 
+    @Transactional
+    public User changePassword(UUID id, String rawPassword) {
+        User user = findRequired(id);
+        user.changePassword(passwordEncoder.encode(rawPassword));
+        return userRepository.save(user);
+    }
+
     private User findRequired(UUID id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("User", id));

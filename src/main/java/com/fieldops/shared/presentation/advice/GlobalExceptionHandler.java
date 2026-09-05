@@ -1,5 +1,6 @@
 package com.fieldops.shared.presentation.advice;
 
+import com.fieldops.auth.domain.exception.AuthException;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.ConflictException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
@@ -26,9 +27,8 @@ import java.util.List;
  * class name ever reaches the client. Technical detail is logged with the
  * correlated {@code requestId}.</p>
  *
- * <p>Handlers for {@code 401 AuthenticationException} and
- * {@code 403 AccessDeniedException} will be added in EP-02 when
- * Spring Security is introduced.</p>
+ * <p>Authentication filter failures are rendered directly by the security
+ * entry point; controller-level authentication failures use the handler below.</p>
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -81,6 +81,14 @@ public class GlobalExceptionHandler {
         ApiError body = buildError(HttpStatus.UNPROCESSABLE_ENTITY, ex.getCode(), ex.getMessage(), request);
         log.warn("Business rule violated: {} — {}", ex.getCode(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(body);
+    }
+
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<ApiError> handleAuthentication(AuthException ex,
+                                                         HttpServletRequest request) {
+        ApiError body = buildError(HttpStatus.UNAUTHORIZED, ex.getCode(), ex.getMessage(), request);
+        log.warn("Authentication rejected: {}", ex.getCode());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
     }
 
     // ── 500 Fallback ────────────────────────────────────────────────────
