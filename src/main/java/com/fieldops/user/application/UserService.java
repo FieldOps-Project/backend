@@ -69,7 +69,6 @@ public class UserService {
         user.changePassword(passwordEncoder.encode(rawPassword));
         return userRepository.save(user);
     }
-
     private User findRequired(UUID id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("User", id));
