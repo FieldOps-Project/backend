@@ -1,0 +1,214 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "FieldOps API",
+    "description": "Contrato inicial da API FieldOps para mobile e painel.",
+    "version": "v1",
+    "contact": { "name": "FieldOps Project" }
+  },
+  "tags": [
+    { "name": "Authentication", "description": "Authentication and session contract." },
+    { "name": "Inspections", "description": "Inspection listing contract." }
+  ],
+  "servers": [
+    { "url": "http://localhost:8080", "description": "Local" },
+    { "url": "https://api.fieldops.com.br", "description": "Production" }
+  ],
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [ "Authentication" ],
+        "summary": "Authenticate a user",
+        "description": "Authenticates credentials and starts a session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "example": {
+                "email": "tecnico@fieldops.local",
+                "password": "senha-informada-pelo-usuario"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/LoginResponse" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/InvalidCredentials" }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [ "Authentication" ],
+        "summary": "Refresh an access token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TokenRequest" },
+              "example": { "refreshToken": "token-de-renovacao" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/TokenResponse" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/InvalidRefreshToken" }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [ "Authentication" ],
+        "summary": "Get the current authenticated user",
+        "security": [ { "bearerAuth": [] } ],
+        "responses": {
+          "200": {
+            "description": "Current user",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthUser" } } }
+          },
+          "401": { "$ref": "#/components/responses/AuthenticationRequired" }
+        }
+      }
+    },
+    "/api/v1/inspections": {
+      "get": {
+        "tags": [ "Inspections" ],
+        "summary": "List inspections for the panel",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          { "name": "page", "in": "query", "description": "Zero-based page number", "schema": { "type": "integer", "minimum": 0, "default": 0 } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/InspectionPage" },
+          "401": { "$ref": "#/components/responses/AuthenticationRequired" }
+        }
+      }
+    },
+    "/api/v1/mobile/inspections": {
+      "get": {
+        "tags": [ "Inspections" ],
+        "summary": "List inspections available to mobile clients",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          { "name": "page", "in": "query", "description": "Zero-based page number", "schema": { "type": "integer", "minimum": 0, "default": 0 } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/InspectionPage" },
+          "401": { "$ref": "#/components/responses/AuthenticationRequired" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "responses": {
+      "LoginResponse": {
+        "description": "Successful authentication",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } } }
+      },
+      "TokenResponse": {
+        "description": "Tokens renewed",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenResponse" } } }
+      },
+      "InspectionPage": {
+        "description": "Inspection page",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InspectionPage" } } }
+      },
+      "ValidationError": {
+        "description": "Invalid payload",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "InvalidCredentials": {
+        "description": "Invalid credentials",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "InvalidRefreshToken": {
+        "description": "Invalid or expired refresh token",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "AuthenticationRequired": {
+        "description": "Authentication required",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "ApiErrorResponse": {
+        "description": "Standardized API error",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Canonical error envelope returned by the API.",
+        "type": "object",
+        "required": [ "timestamp", "status", "code", "message", "path", "requestId", "fieldErrors" ],
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time" },
+          "status": { "type": "integer", "example": 400 },
+          "code": { "type": "string", "example": "VALIDATION_ERROR" },
+          "message": { "type": "string", "example": "Request validation failed" },
+          "path": { "type": "string", "example": "/api/v1/auth/login" },
+          "requestId": { "type": "string", "example": "8e5d8e75-821a-4153-9bf5-b30011ac3975" },
+          "fieldErrors": {
+            "type": "array",
+            "items": { "type": "object", "properties": { "field": { "type": "string" }, "message": { "type": "string" } } }
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [ "email", "password" ],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "tecnico@fieldops.local" },
+          "password": { "type": "string", "format": "password", "example": "senha-informada-pelo-usuario", "writeOnly": true }
+        }
+      },
+      "TokenRequest": {
+        "type": "object",
+        "required": [ "refreshToken" ],
+        "properties": { "refreshToken": { "type": "string", "example": "token-de-renovacao", "writeOnly": true } }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": { "type": "string", "example": "token" },
+          "refreshToken": { "type": "string", "example": "token-de-renovacao" },
+          "expiresIn": { "type": "integer", "format": "int64", "example": 900 },
+          "user": { "$ref": "#/components/schemas/AuthUser" }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": { "type": "string", "example": "token" },
+          "refreshToken": { "type": "string", "example": "token-de-renovacao" },
+          "expiresIn": { "type": "integer", "format": "int64", "example": 900 }
+        }
+      },
+      "AuthUser": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "example": "8a50e30d-0000-4000-8000-000000000001" },
+          "name": { "type": "string", "example": "Carlos Tecnico" },
+          "email": { "type": "string", "format": "email", "example": "tecnico@fieldops.local" },
+          "role": { "type": "string", "enum": [ "ADMIN", "SUPERVISOR", "TECHNICIAN", "CLIENT_VIEWER" ], "example": "TECHNICIAN" }
+        }
+      },
+      "InspectionPage": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string", "format": "uuid" }, "status": { "type": "string", "example": "PENDING" }, "scheduledAt": { "type": "string", "format": "date-time" } } } },
+          "page": { "type": "integer", "example": 0 },
+          "size": { "type": "integer", "example": 20 },
+          "totalElements": { "type": "integer", "format": "int64", "example": 1 },
+          "totalPages": { "type": "integer", "example": 1 },
+          "first": { "type": "boolean", "example": true },
+          "last": { "type": "boolean", "example": true }
+        }
+      }
+    }
+  }
+}
