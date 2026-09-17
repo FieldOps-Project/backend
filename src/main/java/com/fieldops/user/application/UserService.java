@@ -1,5 +1,6 @@
 package com.fieldops.user.application;
 
+import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.user.domain.exception.EmailAlreadyExistsException;
 import com.fieldops.user.domain.model.User;
@@ -7,6 +8,7 @@ import com.fieldops.user.domain.model.UserRole;
 import com.fieldops.user.domain.model.UserStatus;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ public class UserService {
     }
 
     @Transactional
+    @PreAuthorize(AuthorizationPolicies.USERS_MANAGE)
     public User createUser(String name, String email, String rawPassword, UserRole role, UserStatus status, String phone) {
         User user = User.create(
                 name,
@@ -47,11 +50,13 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize(AuthorizationPolicies.USERS_READ)
     public User findById(UUID id) {
         return findRequired(id);
     }
 
     @Transactional
+    @PreAuthorize(AuthorizationPolicies.USERS_MANAGE)
     public User updateStatus(UUID id, UserStatus status) {
         User user = findRequired(id);
         user.updateStatus(status);
@@ -59,11 +64,13 @@ public class UserService {
     }
 
     @Transactional
+    @PreAuthorize(AuthorizationPolicies.USERS_MANAGE)
     public User inactivate(UUID id) {
         return updateStatus(id, UserStatus.INACTIVE);
     }
 
     @Transactional
+    @PreAuthorize(AuthorizationPolicies.USERS_MANAGE)
     public User changePassword(UUID id, String rawPassword) {
         User user = findRequired(id);
         user.changePassword(passwordEncoder.encode(rawPassword));

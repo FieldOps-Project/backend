@@ -1,5 +1,6 @@
 package com.fieldops.user.presentation;
 
+import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
 import com.fieldops.shared.presentation.dto.ApiError;
 import com.fieldops.user.application.UserService;
 import com.fieldops.user.domain.model.User;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -42,6 +44,7 @@ public class UserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize(AuthorizationPolicies.USERS_MANAGE)
     @Operation(
             summary = "Create a user",
             description = "Stores the password using BCrypt and never returns the password hash.",
@@ -81,12 +84,14 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize(AuthorizationPolicies.USERS_READ)
     @Operation(summary = "Get a user by id", description = "Returns user data without password hash.")
     public UserResponse findById(@PathVariable UUID id) {
         return userMapper.toResponse(userService.findById(id));
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize(AuthorizationPolicies.USERS_MANAGE)
     @Operation(summary = "Update user status", description = "Changes status while preserving the user row history.")
     public UserResponse updateStatus(@PathVariable UUID id, @Valid @RequestBody UpdateUserStatusRequest request) {
         return userMapper.toResponse(userService.updateStatus(id, request.status()));
@@ -94,6 +99,7 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize(AuthorizationPolicies.USERS_MANAGE)
     @Operation(summary = "Inactivate a user", description = "Logical delete: marks the user as INACTIVE and never deletes the row.")
     public void inactivate(@PathVariable UUID id) {
         userService.inactivate(id);

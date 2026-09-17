@@ -26,3 +26,19 @@ A API usa JWT stateless. Configure `JWT_SECRET` com pelo menos 32 caracteres for
 - `GET /api/v1/auth/me` exige `Authorization: Bearer <accessToken>` e devolve `id`, `name`, `email` e `role`.
 
 Refresh tokens sao armazenados somente como hash. Logout, troca de senha e mudancas de status invalidam sessoes conforme a versao de sessao do usuario; o access token ja emitido permanece valido apenas ate sua expiracao natural no caso de logout.
+
+## Autorizacao
+
+A API valida autorizacao no servidor com `@PreAuthorize` nos endpoints e nos servicos de aplicacao. O perfil e carregado do claim `role` do JWT, enquanto a identidade usada para escopo vem do `sub` validado pelo filtro JWT e do usuario recarregado no banco.
+
+| Recurso | ADMIN | SUPERVISOR | TECHNICIAN |
+| --- | --- | --- | --- |
+| Usuarios | CRUD | leitura | nenhum |
+| Clientes, locais e equipamentos | CRUD | CRUD | leitura no escopo da inspecao |
+| Modelos de inspecao | CRUD | CRUD | nenhum |
+| Agendar, atribuir e cancelar inspecao | sim | sim | nao |
+| Executar inspecao | nao | nao | somente as proprias |
+| Revisar, aprovar e reprovar | nao | sim | nao |
+| Auditoria | leitura | leitura no escopo | nenhum |
+
+Os endpoints existentes de usuarios aplicam essa matriz: ADMIN pode gerenciar, ADMIN e SUPERVISOR podem consultar, e os demais perfis recebem `403 AUTH_FORBIDDEN`. Recursos pertencentes a outro tecnico devem filtrar pelo usuario autenticado e devolver `404`, sem aceitar `technicianId` ou outro identificador de escopo no payload.

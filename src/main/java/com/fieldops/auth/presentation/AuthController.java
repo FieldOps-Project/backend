@@ -1,12 +1,13 @@
 package com.fieldops.auth.presentation;
 import com.fieldops.auth.application.AuthenticationService;
+import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
+import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
 import com.fieldops.auth.presentation.dto.AuthUserResponse;
 import com.fieldops.auth.presentation.dto.LoginRequest;
 import com.fieldops.auth.presentation.dto.LoginResponse;
 import com.fieldops.auth.presentation.dto.RefreshTokenRequest;
 import com.fieldops.auth.presentation.dto.TokenResponse;
 import com.fieldops.auth.presentation.mapper.AuthUserMapper;
-import com.fieldops.user.domain.model.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,9 +29,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
     private final AuthenticationService authenticationService;
     private final AuthUserMapper authUserMapper;
-    public AuthController(AuthenticationService authenticationService, AuthUserMapper authUserMapper) {
+    private final AuthenticatedUserResolver authenticatedUserResolver;
+
+    public AuthController(
+            AuthenticationService authenticationService,
+            AuthUserMapper authUserMapper,
+            AuthenticatedUserResolver authenticatedUserResolver
+    ) {
         this.authenticationService = authenticationService;
         this.authUserMapper = authUserMapper;
+        this.authenticatedUserResolver = authenticatedUserResolver;
     }
     @PostMapping("/login")
     @Operation(
@@ -62,8 +71,9 @@ public class AuthController {
         authenticationService.logout(request.refreshToken());
     }
     @GetMapping("/me")
+    @PreAuthorize(AuthorizationPolicies.AUTHENTICATED)
     @Operation(summary = "Get the current authenticated user's public profile")
     public AuthUserResponse me(Authentication authentication) {
-        return authUserMapper.toResponse((User) authentication.getPrincipal());
+        return authUserMapper.toResponse(authenticatedUserResolver.requireUser(authentication));
     }
 }
