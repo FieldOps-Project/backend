@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.*;
@@ -64,6 +65,11 @@ class GlobalExceptionHandlerTest {
         void businessRule() {
             throw new BusinessRuleException("INSPECTION_ALREADY_SUBMITTED",
                     "Cannot edit an inspection that has already been submitted");
+        }
+
+        @GetMapping("/forbidden")
+        void forbidden() {
+            throw new AccessDeniedException("not allowed");
         }
 
         @GetMapping("/unexpected")
@@ -127,6 +133,18 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.status").value(422))
                 .andExpect(jsonPath("$.code").value("INSPECTION_ALREADY_SUBMITTED"))
+                .andExpect(jsonPath("$.requestId").isNotEmpty())
+                .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    @DisplayName("AccessDeniedException -> 403 with the canonical authorization error")
+    void accessDenied_returns403() throws Exception {
+        mockMvc.perform(get("/test/forbidden"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("You do not have permission to access this resource"))
                 .andExpect(jsonPath("$.requestId").isNotEmpty())
                 .andExpect(header().exists("X-Request-Id"));
     }

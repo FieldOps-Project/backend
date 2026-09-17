@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -89,6 +90,19 @@ public class GlobalExceptionHandler {
         ApiError body = buildError(HttpStatus.UNAUTHORIZED, ex.getCode(), ex.getMessage(), request);
         log.warn("Authentication rejected: {}", ex.getCode());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex,
+                                                       HttpServletRequest request) {
+        ApiError body = buildError(
+                HttpStatus.FORBIDDEN,
+                "AUTH_FORBIDDEN",
+                "You do not have permission to access this resource",
+                request
+        );
+        log.warn("Authorization rejected for {} {}", request.getMethod(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     // ── 500 Fallback ────────────────────────────────────────────────────
