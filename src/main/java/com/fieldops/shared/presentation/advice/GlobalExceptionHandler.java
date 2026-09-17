@@ -3,6 +3,7 @@ package com.fieldops.shared.presentation.advice;
 import com.fieldops.auth.domain.exception.AuthException;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.ConflictException;
+import com.fieldops.shared.domain.exception.InvalidRequestException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.infrastructure.filter.RequestIdFilter;
 import com.fieldops.shared.presentation.dto.ApiError;
@@ -12,8 +13,10 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -51,6 +54,27 @@ public class GlobalExceptionHandler {
                 "One or more fields failed validation", request, fieldErrors);
 
         log.warn("Validation failed on {} {}: {}", request.getMethod(), request.getRequestURI(), fieldErrors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiError> handleMalformedRequest(Exception ex,
+                                                           HttpServletRequest request) {
+        ApiError body = buildError(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_REQUEST",
+                "The request contains an invalid value",
+                request
+        );
+        log.warn("Malformed request on {} {}", request.getMethod(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<ApiError> handleInvalidRequest(InvalidRequestException ex,
+                                                         HttpServletRequest request) {
+        ApiError body = buildError(HttpStatus.BAD_REQUEST, ex.getCode(), ex.getMessage(), request);
+        log.warn("Invalid request on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getCode());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 

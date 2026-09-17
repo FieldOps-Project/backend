@@ -1,5 +1,7 @@
 package com.fieldops.user.application;
 
+import com.fieldops.audit.application.AuditEventService;
+import com.fieldops.audit.infrastructure.persistence.AuditEventRepository;
 import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
 import com.fieldops.user.domain.model.User;
 import com.fieldops.user.domain.model.UserRole;
@@ -10,7 +12,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.http.MediaType;
@@ -18,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,6 +60,12 @@ class UserAuthorizationTest {
 
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
+
+    @MockitoBean
+    private AuditEventRepository auditEventRepository;
+
+    @MockitoBean
+    private AuditEventService auditEventService;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
@@ -160,5 +172,59 @@ class UserAuthorizationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanListUsersThroughTheVersionedEndpoint() throws Exception {
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(user)));
+
+        mockMvc.perform(get("/api/v1/users")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content").isNotEmpty())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void invalidRoleFilterReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/users?role=UNKNOWN")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void invalidRoleInCreateReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/users")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Joao Silva",
+                                  "email": "joao@example.com",
+                                  "password": "StrongPassword",
+                                  "role": "UNKNOWN"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanResetPasswordThroughTheVersionedEndpoint() throws Exception {
+        when(userRepository.save(user)).thenReturn(user);
+
+        mockMvc.perform(post("/api/v1/users/{id}/reset-password", userId)
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.temporaryPassword").isString())
+                .andExpect(jsonPath("$.temporaryPassword").isNotEmpty())
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
     }
 }

@@ -1,5 +1,6 @@
 package com.fieldops;
 
+import com.fieldops.audit.infrastructure.persistence.AuditEventRepository;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,9 @@ class FieldopsApiApplicationTests {
 
 	@MockitoBean
 	private RefreshTokenRepository refreshTokenRepository;
+
+	@MockitoBean
+	private AuditEventRepository auditEventRepository;
 
 	@MockitoBean
 	private JpaMetamodelMappingContext jpaMetamodelMappingContext;
