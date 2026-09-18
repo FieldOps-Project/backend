@@ -4,6 +4,7 @@ import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
 import com.fieldops.client.domain.model.Client;
 import com.fieldops.client.domain.model.ClientStatus;
 import com.fieldops.client.infrastructure.persistence.ClientRepository;
+import com.fieldops.client.infrastructure.persistence.InspectionSiteRepository;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,9 @@ class ClientAuthorizationTest {
 
     @MockitoBean
     private ClientRepository clientRepository;
+
+    @MockitoBean
+    private InspectionSiteRepository inspectionSiteRepository;
 
     @MockitoBean
     private UserRepository userRepository;
