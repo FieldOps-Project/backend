@@ -1,6 +1,7 @@
 package com.fieldops.client.application;
 
 import com.fieldops.audit.infrastructure.persistence.AuditEventRepository;
+import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
 import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
 import com.fieldops.client.domain.model.Client;
 import com.fieldops.client.domain.model.ClientStatus;
@@ -66,6 +67,9 @@ class InspectionSiteAuthorizationTest {
 
     @MockitoBean
     private AuditEventRepository auditEventRepository;
+
+    @MockitoBean
+    private EquipmentRepository equipmentRepository;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;

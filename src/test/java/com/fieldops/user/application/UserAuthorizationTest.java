@@ -40,6 +40,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
+
 @SpringBootTest(properties = {
         "spring.autoconfigure.exclude="
                 + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,"
@@ -74,6 +76,9 @@ class UserAuthorizationTest {
 
     @MockitoBean
     private InspectionSiteRepository inspectionSiteRepository;
+
+    @MockitoBean
+    private EquipmentRepository equipmentRepository;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
