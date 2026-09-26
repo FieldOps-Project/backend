@@ -89,6 +89,13 @@ public class User {
         this.status = newStatus;
     }
 
+    public void updateProfile(String name, String email, UserRole role, String phone) {
+        this.name = requireText(name, "name");
+        this.email = requireText(email, "email");
+        this.role = Objects.requireNonNull(role, "role must not be null");
+        this.phone = normalizeOptional(phone);
+    }
+
     public void changePassword(String passwordHash) {
         this.passwordHash = requireText(passwordHash, "passwordHash");
         this.sessionVersion++;
