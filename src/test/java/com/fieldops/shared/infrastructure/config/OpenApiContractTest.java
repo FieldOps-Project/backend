@@ -12,7 +12,7 @@ class OpenApiContractTest {
         OpenAPI openAPI = new OpenApiConfig().fieldOpsOpenAPI();
 
         assertThat(openAPI.getInfo().getTitle()).isEqualTo("FieldOps API");
-        assertThat(openAPI.getServers()).hasSize(2);
+        assertThat(openAPI.getServers()).hasSize(3);
         assertThat(openAPI.getComponents().getSecuritySchemes()).containsKey("bearerAuth");
         assertThat(openAPI.getComponents().getSchemas()).containsKey("ApiError");
         assertThat(openAPI.getPaths()).containsKeys(

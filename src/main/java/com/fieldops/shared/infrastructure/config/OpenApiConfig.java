@@ -34,7 +34,7 @@ public class OpenApiConfig {
     private static final String API_ERROR = "ApiError";
 
     @Bean
-    OpenAPI fieldOpsOpenAPI() {
+    public OpenAPI fieldOpsOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
                         .title("FieldOps API")
