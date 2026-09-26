@@ -12,7 +12,6 @@ O modulo `user` implementa a base de identidade da API:
 - `DELETE /users/{id}` executa exclusao logica, marcando `status = INACTIVE`.
 
 A tabela `users` e criada por Flyway em `V2__create_users.sql`, com indice unico em `lower(email)` para impedir e-mails duplicados variando maiusculas/minusculas.
-
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 

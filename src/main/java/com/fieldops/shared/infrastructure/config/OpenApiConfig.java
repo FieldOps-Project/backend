@@ -19,8 +19,8 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-import io.swagger.v3.oas.models.tags.Tag;
 import io.swagger.v3.oas.models.servers.Server;
+import io.swagger.v3.oas.models.tags.Tag;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -43,6 +43,7 @@ public class OpenApiConfig {
                         .contact(new Contact().name("FieldOps Project")))
                 .servers(List.of(
                         new Server().url("http://localhost:8080").description("Local"),
+                        new Server().url("https://api-hml.fieldops.com.br").description("Integracao"),
                         new Server().url("https://api.fieldops.com.br").description("Production")))
                 .tags(List.of(
                         new Tag().name("Authentication").description("Authentication and session contract."),
@@ -134,7 +135,7 @@ public class OpenApiConfig {
                 .schema(new IntegerSchema()._default(0).minimum(BigDecimal.ZERO));
     }
 
-        private RequestBody jsonBody(String schemaName, Object example) {
+    private RequestBody jsonBody(String schemaName, Object example) {
         return new RequestBody()
                 .required(true)
                 .content(new Content().addMediaType("application/json", new io.swagger.v3.oas.models.media.MediaType()
@@ -178,11 +179,11 @@ public class OpenApiConfig {
                 .addProperties("password", new StringSchema().format("password").example("senha-informada-pelo-usuario"));
     }
 
-        private Schema<?> tokenRequestSchema() {
-                return new ObjectSchema()
-                                .required(List.of("refreshToken"))
-                                .addProperties("refreshToken", new StringSchema().example("token-de-renovacao"));
-        }
+    private Schema<?> tokenRequestSchema() {
+        return new ObjectSchema()
+                .required(List.of("refreshToken"))
+                .addProperties("refreshToken", new StringSchema().example("token-de-renovacao"));
+    }
 
     private Schema<?> loginResponseSchema() {
         return new ObjectSchema()

@@ -1,4 +1,5 @@
 package com.fieldops.auth.presentation;
+
 import com.fieldops.auth.application.AuthenticationService;
 import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
 import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
@@ -23,10 +24,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "JWT authentication and session management.")
 public class AuthController {
+
     private final AuthenticationService authenticationService;
     private final AuthUserMapper authUserMapper;
     private final AuthenticatedUserResolver authenticatedUserResolver;
@@ -40,6 +43,7 @@ public class AuthController {
         this.authUserMapper = authUserMapper;
         this.authenticatedUserResolver = authenticatedUserResolver;
     }
+
     @PostMapping("/login")
     @Operation(
             summary = "Authenticate a user",
@@ -58,18 +62,21 @@ public class AuthController {
                 authUserMapper.toResponse(session.user())
         );
     }
+
     @PostMapping("/refresh")
     @Operation(summary = "Rotate the access and refresh tokens")
     public TokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
         AuthenticationService.TokenSession session = authenticationService.refresh(request.refreshToken());
         return new TokenResponse(session.accessToken(), session.refreshToken(), session.expiresIn());
     }
+
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Revoke a refresh token")
     public void logout(@Valid @RequestBody RefreshTokenRequest request) {
         authenticationService.logout(request.refreshToken());
     }
+
     @GetMapping("/me")
     @PreAuthorize(AuthorizationPolicies.AUTHENTICATED)
     @Operation(summary = "Get the current authenticated user's public profile")
