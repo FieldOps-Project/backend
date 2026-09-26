@@ -63,6 +63,8 @@ public class User {
     @Column(name = "version", nullable = false)
     private int version;
 
+    @Column(name = "session_version", nullable = false)
+    private int sessionVersion;
     protected User() {
     }
 
@@ -80,7 +82,16 @@ public class User {
     }
 
     public void updateStatus(UserStatus status) {
-        this.status = Objects.requireNonNull(status, "status must not be null");
+        UserStatus newStatus = Objects.requireNonNull(status, "status must not be null");
+        if (this.status != newStatus) {
+            this.sessionVersion++;
+        }
+        this.status = newStatus;
+    }
+
+    public void changePassword(String passwordHash) {
+        this.passwordHash = requireText(passwordHash, "passwordHash");
+        this.sessionVersion++;
     }
 
     @PrePersist
@@ -131,6 +142,9 @@ public class User {
         return version;
     }
 
+    public int getSessionVersion() {
+        return sessionVersion;
+    }
     private static String requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
