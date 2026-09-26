@@ -46,6 +46,25 @@ agendamento os rejeita com `CLIENT_INACTIVE`.
 A tabela `clients` e criada por Flyway em `V5__create_clients.sql`, com restricao de banco para status e
 formato do documento, indices de busca e controle de concorrencia otimista por `version`.
 
+## Locais de inspeção
+
+O modulo `client` tambem gerencia locais vinculados a clientes:
+
+- `GET /api/v1/sites?clientId=&search=&status=&page=&size=&sort=` lista locais globalmente ou por cliente.
+- `GET /api/v1/clients/{clientId}/sites` lista somente os locais do cliente informado.
+- `GET /api/v1/sites/{id}` consulta locais ativos e inativos.
+- `POST /api/v1/sites` cria um local para um cliente existente.
+- `PUT /api/v1/sites/{id}` atualiza o local sem aceitar alteracao de `clientId`.
+- `PATCH /api/v1/sites/{id}/status` altera a situacao sem excluir o registro.
+
+Somente ADMIN e SUPERVISOR podem operar o cadastro. O `clientId` e obrigatorio na criacao e protegido
+por FK e pelo mapeamento imutavel da entidade. Coordenadas devem ser informadas em conjunto e respeitar
+latitude entre -90 e 90 e longitude entre -180 e 180. Locais inativos, assim como seus clientes inativos,
+sao rejeitados pelo servico de agendamento com erro de regra de negocio.
+
+A tabela `inspection_sites` e criada por Flyway em `V6__create_inspection_sites.sql`, com indices por
+cliente e situacao, FK obrigatoria, constraints de status/coordenadas e controle otimista por `version`.
+
 ## Regra de Ouro (Dependências)
 - domain não conhece o Spring (exceção: anotações lógicas caso inevitável, mas prefira POJOs).
 - pplication conhece domain e define contratos para infrastructure (Dependency Inversion).
