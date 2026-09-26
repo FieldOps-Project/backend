@@ -3,6 +3,7 @@ package com.fieldops;
 import com.fieldops.audit.infrastructure.persistence.AuditEventRepository;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
+import com.fieldops.client.infrastructure.persistence.ClientRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
@@ -26,6 +27,9 @@ class FieldopsApiApplicationTests {
 
 	@MockitoBean
 	private AuditEventRepository auditEventRepository;
+
+	@MockitoBean
+	private ClientRepository clientRepository;
 
 	@MockitoBean
 	private JpaMetamodelMappingContext jpaMetamodelMappingContext;

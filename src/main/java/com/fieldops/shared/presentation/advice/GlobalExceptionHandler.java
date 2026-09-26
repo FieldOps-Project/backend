@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -76,6 +77,21 @@ public class GlobalExceptionHandler {
         ApiError body = buildError(HttpStatus.BAD_REQUEST, ex.getCode(), ex.getMessage(), request);
         log.warn("Invalid request on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getCode());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    // ── 405 Method Not Allowed ──────────────────────────────────────────
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex,
+                                                           HttpServletRequest request) {
+        ApiError body = buildError(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "METHOD_NOT_ALLOWED",
+                "The requested HTTP method is not supported for this resource",
+                request
+        );
+        log.warn("Unsupported HTTP method {} on {}", request.getMethod(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(body);
     }
 
     // ── 404 Not Found ───────────────────────────────────────────────────

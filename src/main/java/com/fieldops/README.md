@@ -28,6 +28,24 @@ Em cada pasta de contexto (ex: client/), o código deve ser dividido da seguinte
 | infrastructure| Adapters (Out) | Repositórios Spring Data JPA (Interfaces e Implementações), comunicação externa. |
 | presentation| Adapters (In) | Controllers REST, DTOs de entrada (Requests) e saída (Responses). |
 
+## Clientes
+
+O modulo `client` gerencia a organizacao atendida pela operacao:
+
+- `GET /api/v1/clients?search=&status=&page=&size=&sort=` lista clientes por nome ou razao social.
+- `GET /api/v1/clients/{id}` consulta clientes ativos e inativos.
+- `POST /api/v1/clients` cria um cliente ativo por padrao.
+- `PUT /api/v1/clients/{id}` atualiza os dados cadastrais sem alterar a situacao.
+- `PATCH /api/v1/clients/{id}/status` altera a situacao sem excluir o registro.
+
+Somente ADMIN e SUPERVISOR podem operar o cadastro. Nao existe exclusao fisica. O documento e opcional,
+aceita CPF ou CNPJ com ou sem mascara e e persistido somente com digitos; nao ha unicidade global para
+esse campo opcional. Clientes inativos continuam disponiveis para consulta historica, mas o servico de
+agendamento os rejeita com `CLIENT_INACTIVE`.
+
+A tabela `clients` e criada por Flyway em `V5__create_clients.sql`, com restricao de banco para status e
+formato do documento, indices de busca e controle de concorrencia otimista por `version`.
+
 ## Regra de Ouro (Dependências)
 - domain não conhece o Spring (exceção: anotações lógicas caso inevitável, mas prefira POJOs).
 - pplication conhece domain e define contratos para infrastructure (Dependency Inversion).

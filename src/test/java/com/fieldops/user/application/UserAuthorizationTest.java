@@ -3,6 +3,7 @@ package com.fieldops.user.application;
 import com.fieldops.audit.application.AuditEventService;
 import com.fieldops.audit.infrastructure.persistence.AuditEventRepository;
 import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
+import com.fieldops.client.infrastructure.persistence.ClientRepository;
 import com.fieldops.user.domain.model.User;
 import com.fieldops.user.domain.model.UserRole;
 import com.fieldops.user.domain.model.UserStatus;
@@ -66,6 +67,9 @@ class UserAuthorizationTest {
 
     @MockitoBean
     private AuditEventService auditEventService;
+
+    @MockitoBean
+    private ClientRepository clientRepository;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
