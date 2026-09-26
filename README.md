@@ -42,3 +42,22 @@ A API valida autorizacao no servidor com `@PreAuthorize` nos endpoints e nos ser
 | Auditoria | leitura | leitura no escopo | nenhum |
 
 Os endpoints existentes de usuarios aplicam essa matriz: ADMIN pode gerenciar, ADMIN e SUPERVISOR podem consultar, e os demais perfis recebem `403 AUTH_FORBIDDEN`. Recursos pertencentes a outro tecnico devem filtrar pelo usuario autenticado e devolver `404`, sem aceitar `technicianId` ou outro identificador de escopo no payload.
+
+## Gestao de usuarios
+
+Os endpoints versionados de usuarios exigem perfil ADMIN para alteracoes e aceitam `/users` como alias legado:
+
+```text
+GET    /api/v1/users?name=&email=&role=&status=&page=&size=&sort=
+GET    /api/v1/users/{id}
+POST   /api/v1/users
+PUT    /api/v1/users/{id}
+PATCH  /api/v1/users/{id}/status
+POST   /api/v1/users/{id}/reset-password
+```
+
+A listagem usa pagina zero-based, tamanho padrao 20 e limite de 100 itens. O sort aceita somente `name`, `email`, `role`, `status`, `createdAt` ou `updatedAt`, seguido opcionalmente de `asc` ou `desc`.
+
+O reset gera uma senha temporaria aleatoria, persiste somente o hash, invalida as sessoes existentes e devolve a credencial apenas na resposta do endpoint de reset. Senhas nao sao registradas em logs nem em eventos de auditoria.
+
+Operacoes de criacao, edicao, alteracao de perfil, alteracao de situacao e reset geram eventos em `audit_events`, com autor, data, acao e valores antes/depois sem campos sensiveis. A inativacao e logica e preserva o historico do usuario.
