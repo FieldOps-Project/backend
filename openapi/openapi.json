@@ -1,213 +1,3570 @@
 {
-  "openapi": "3.0.3",
+  "openapi": "3.1.0",
   "info": {
     "title": "FieldOps API",
     "description": "Contrato inicial da API FieldOps para mobile e painel.",
-    "version": "v1",
-    "contact": { "name": "FieldOps Project" }
+    "contact": {
+      "name": "FieldOps Project"
+    },
+    "version": "v1"
   },
-  "tags": [
-    { "name": "Authentication", "description": "Authentication and session contract." },
-    { "name": "Inspections", "description": "Inspection listing contract." }
-  ],
   "servers": [
-    { "url": "http://localhost:8080", "description": "Local" },
-    { "url": "https://api.fieldops.com.br", "description": "Production" }
+    {
+      "url": "http://localhost:8080",
+      "description": "Local"
+    },
+    {
+      "url": "https://api-hml.fieldops.com.br",
+      "description": "Integracao"
+    },
+    {
+      "url": "https://api.fieldops.com.br",
+      "description": "Production"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Clients",
+      "description": "Client organization management endpoints."
+    },
+    {
+      "name": "Inspections",
+      "description": "Inspection listing contract."
+    },
+    {
+      "name": "Equipment",
+      "description": "Equipment management and QR Code lookup endpoints."
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints."
+    },
+    {
+      "name": "Inspections",
+      "description": "Inspection list contract endpoints for dashboard and mobile."
+    },
+    {
+      "name": "Authentication",
+      "description": "JWT authentication and session management."
+    },
+    {
+      "name": "Inspection sites",
+      "description": "Inspection site management endpoints."
+    },
+    {
+      "name": "Authentication",
+      "description": "Authentication and session contract."
+    }
   ],
   "paths": {
     "/api/v1/auth/login": {
       "post": {
-        "tags": [ "Authentication" ],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Authenticate a user",
         "description": "Authenticates credentials and starts a session.",
+        "operationId": "login",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
               "example": {
-                "email": "tecnico@fieldops.local",
-                "password": "senha-informada-pelo-usuario"
+                "password": "senha-informada-pelo-usuario",
+                "email": "tecnico@fieldops.local"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials or inactive user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LoginResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
               }
             }
           }
-        },
-        "responses": {
-          "200": { "$ref": "#/components/responses/LoginResponse" },
-          "400": { "$ref": "#/components/responses/ValidationError" },
-          "401": { "$ref": "#/components/responses/InvalidCredentials" }
         }
       }
     },
     "/api/v1/auth/refresh": {
       "post": {
-        "tags": [ "Authentication" ],
-        "summary": "Refresh an access token",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Rotate the access and refresh tokens",
+        "operationId": "refresh",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/TokenRequest" },
-              "example": { "refreshToken": "token-de-renovacao" }
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              },
+              "example": {
+                "refreshToken": "token-de-renovacao"
+              }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
-          "200": { "$ref": "#/components/responses/TokenResponse" },
-          "400": { "$ref": "#/components/responses/ValidationError" },
-          "401": { "$ref": "#/components/responses/InvalidRefreshToken" }
+          "200": {
+            "description": "Tokens renewed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/v1/auth/me": {
       "get": {
-        "tags": [ "Authentication" ],
-        "summary": "Get the current authenticated user",
-        "security": [ { "bearerAuth": [] } ],
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Get the current authenticated user's public profile",
+        "operationId": "me",
         "responses": {
           "200": {
             "description": "Current user",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthUser" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUser"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUserResponse"
+                }
+              }
+            }
           },
-          "401": { "$ref": "#/components/responses/AuthenticationRequired" }
-        }
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/inspections": {
       "get": {
-        "tags": [ "Inspections" ],
-        "summary": "List inspections for the panel",
-        "security": [ { "bearerAuth": [] } ],
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "List inspections for dashboard",
+        "operationId": "list",
         "parameters": [
-          { "name": "page", "in": "query", "description": "Zero-based page number", "schema": { "type": "integer", "minimum": 0, "default": 0 } }
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page number",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          }
         ],
         "responses": {
-          "200": { "$ref": "#/components/responses/InspectionPage" },
-          "401": { "$ref": "#/components/responses/AuthenticationRequired" }
-        }
+          "200": {
+            "description": "Inspection list returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionPage"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/InspectionSummaryResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/mobile/inspections": {
       "get": {
-        "tags": [ "Inspections" ],
-        "summary": "List inspections available to mobile clients",
-        "security": [ { "bearerAuth": [] } ],
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "List inspections for mobile technicians",
+        "operationId": "listMobile",
         "parameters": [
-          { "name": "page", "in": "query", "description": "Zero-based page number", "schema": { "type": "integer", "minimum": 0, "default": 0 } }
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page number",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          }
         ],
         "responses": {
-          "200": { "$ref": "#/components/responses/InspectionPage" },
-          "401": { "$ref": "#/components/responses/AuthenticationRequired" }
+          "200": {
+            "description": "Mobile inspection list returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionPage"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/InspectionSummaryResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a user by id",
+        "description": "Returns user data without password hash.",
+        "operationId": "findById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update a user",
+        "description": "Updates profile fields without accepting a password hash.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Inactivate a user",
+        "description": "Logical delete: marks the user as INACTIVE and never deletes the row.",
+        "operationId": "inactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a user by id",
+        "description": "Returns user data without password hash.",
+        "operationId": "findById_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update a user",
+        "description": "Updates profile fields without accepting a password hash.",
+        "operationId": "update_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Inactivate a user",
+        "description": "Logical delete: marks the user as INACTIVE and never deletes the row.",
+        "operationId": "inactivate_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/sites/{id}": {
+      "get": {
+        "tags": [
+          "Inspection sites"
+        ],
+        "summary": "Get an inspection site by id",
+        "description": "Returns active or inactive site data.",
+        "operationId": "findById_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionSiteResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Inspection sites"
+        ],
+        "summary": "Update an inspection site",
+        "description": "Updates site data without accepting a clientId, keeping the client relationship immutable.",
+        "operationId": "update_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInspectionSiteRequest"
+              },
+              "example": {
+                "name": "Unidade Sorocaba",
+                "addressLine": "Av. das Industrias, 1000",
+                "city": "Sorocaba",
+                "state": "SP",
+                "postalCode": "18000-000",
+                "latitude": -23.5015,
+                "longitude": -47.4526
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Site updated",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionSiteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/equipment/{id}": {
+      "get": {
+        "tags": [
+          "Equipment"
+        ],
+        "summary": "Get equipment by ID",
+        "description": "Returns single equipment details.",
+        "operationId": "findById_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Equipment"
+        ],
+        "summary": "Update equipment",
+        "description": "Updates equipment attributes without changing site association.",
+        "operationId": "update_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEquipmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Equipment updated",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Equipment not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "QR Code already in use by another equipment",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clients/{id}": {
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "Get a client by id",
+        "description": "Returns active or inactive client data.",
+        "operationId": "findById_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "Update a client",
+        "description": "Updates profile data. Status is changed separately by the status endpoint.",
+        "operationId": "update_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClientRequest"
+              },
+              "example": {
+                "name": "Industria Alfa",
+                "legalName": "Industria Alfa Ltda",
+                "document": "12345678000190",
+                "email": "contato@industria-alfa.com.br",
+                "phone": "+55 11 99999-0000"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Client updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientResponse"
+                },
+                "example": {
+                  "id": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed",
+                  "name": "Industria Alfa",
+                  "legalName": "Industria Alfa Ltda",
+                  "document": "12345678000190",
+                  "status": "ACTIVE",
+                  "version": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/reset-password": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Reset a user's password",
+        "description": "Generates a temporary password returned only by this response.",
+        "operationId": "resetPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetPasswordResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}/reset-password": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Reset a user's password",
+        "description": "Generates a temporary password returned only by this response.",
+        "operationId": "resetPassword_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetPasswordResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List users",
+        "description": "Lists users with optional filters and bounded pagination.",
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ADMIN",
+                "SUPERVISOR",
+                "TECHNICIAN",
+                "CLIENT_VIEWER"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "BLOCKED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "createdAt,desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseUserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create a user",
+        "description": "Stores the password using BCrypt and never returns the password hash.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "E-mail already exists",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "EMAIL_ALREADY_EXISTS",
+                  "message": "A user with this email already exists"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List users",
+        "description": "Lists users with optional filters and bounded pagination.",
+        "operationId": "findAll_1",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ADMIN",
+                "SUPERVISOR",
+                "TECHNICIAN",
+                "CLIENT_VIEWER"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "BLOCKED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "createdAt,desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseUserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create a user",
+        "description": "Stores the password using BCrypt and never returns the password hash.",
+        "operationId": "create_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "E-mail already exists",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "EMAIL_ALREADY_EXISTS",
+                  "message": "A user with this email already exists"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sites": {
+      "get": {
+        "tags": [
+          "Inspection sites"
+        ],
+        "summary": "List inspection sites",
+        "description": "Lists sites globally or filtered by client, with optional text/status filters and bounded pagination.",
+        "operationId": "findAll_2",
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "createdAt,desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated site list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "content": [
+                    {
+                      "id": "7ae3e623-419b-4adf-8da4-7f9bd7c3dd35",
+                      "clientId": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed",
+                      "name": "Unidade Sorocaba",
+                      "city": "Sorocaba",
+                      "state": "SP",
+                      "status": "ACTIVE",
+                      "version": 0
+                    }
+                  ],
+                  "page": 0,
+                  "size": 20,
+                  "totalElements": 1,
+                  "totalPages": 1,
+                  "first": true,
+                  "last": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Inspection sites"
+        ],
+        "summary": "Create an inspection site",
+        "description": "Creates a site linked to an existing client. The client link cannot be changed later.",
+        "operationId": "create_2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInspectionSiteRequest"
+              },
+              "example": {
+                "clientId": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed",
+                "name": "Unidade Sorocaba",
+                "description": "Fabrica principal",
+                "addressLine": "Av. das Industrias, 1000",
+                "city": "Sorocaba",
+                "state": "SP",
+                "postalCode": "18000-000",
+                "latitude": -23.5015,
+                "longitude": -47.4526,
+                "contactName": "Joao da Silva",
+                "contactPhone": "+55 15 99999-0000"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created site representation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionSiteResponse"
+                },
+                "example": {
+                  "id": "7ae3e623-419b-4adf-8da4-7f9bd7c3dd35",
+                  "clientId": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed",
+                  "name": "Unidade Sorocaba",
+                  "addressLine": "Av. das Industrias, 1000",
+                  "city": "Sorocaba",
+                  "state": "SP",
+                  "postalCode": "18000-000",
+                  "latitude": -23.5015,
+                  "longitude": -47.4526,
+                  "status": "ACTIVE",
+                  "version": 0
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/equipment": {
+      "get": {
+        "tags": [
+          "Equipment"
+        ],
+        "summary": "List equipment",
+        "description": "Lists equipment globally or filtered by site, search text, or status, with bounded pagination.",
+        "operationId": "findAll_3",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "DECOMMISSIONED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "createdAt,desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated equipment list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "content": [
+                    {
+                      "id": "8a50e30d-0000-4000-8000-000000000001",
+                      "siteId": "7ae3e623-419b-4adf-8da4-7f9bd7c3dd35",
+                      "name": "Compressor de Ar Industrial",
+                      "assetNumber": "AST-2026-001",
+                      "qrCode": "EQP-SITE-001-COMP-01",
+                      "status": "ACTIVE",
+                      "version": 0
+                    }
+                  ],
+                  "page": 0,
+                  "size": 20,
+                  "totalElements": 1,
+                  "totalPages": 1,
+                  "first": true,
+                  "last": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Equipment"
+        ],
+        "summary": "Create equipment",
+        "description": "Creates new equipment associated with an active inspection site and a unique QR Code.",
+        "operationId": "create_3",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEquipmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Equipment created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or site status error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "QR Code already in use",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clients": {
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "List clients",
+        "description": "Searches clients by name or legal name with bounded pagination.",
+        "operationId": "findAll_4",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "createdAt,desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated client list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "content": [
+                    {
+                      "id": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed",
+                      "name": "Industria Alfa",
+                      "legalName": "Industria Alfa Ltda",
+                      "document": "12345678000190",
+                      "email": "contato@industria-alfa.com.br",
+                      "phone": "+55 11 99999-0000",
+                      "status": "ACTIVE",
+                      "version": 0
+                    }
+                  ],
+                  "page": 0,
+                  "size": 20,
+                  "totalElements": 1,
+                  "totalPages": 1,
+                  "first": true,
+                  "last": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "Create a client",
+        "description": "Creates an active client by default. The document is stored normalized without punctuation.",
+        "operationId": "create_4",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientRequest"
+              },
+              "example": {
+                "name": "Industria Alfa",
+                "legalName": "Industria Alfa Ltda",
+                "document": "12.345.678/0001-90",
+                "email": "contato@industria-alfa.com.br",
+                "phone": "+55 11 99999-0000"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created client representation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientResponse"
+                },
+                "example": {
+                  "id": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed",
+                  "name": "Industria Alfa",
+                  "legalName": "Industria Alfa Ltda",
+                  "document": "12345678000190",
+                  "email": "contato@industria-alfa.com.br",
+                  "phone": "+55 11 99999-0000",
+                  "status": "ACTIVE",
+                  "version": 0
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Revoke a refresh token",
+        "operationId": "logout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/users/{id}/status": {
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update user status",
+        "description": "Changes status while preserving the user row history.",
+        "operationId": "updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}/status": {
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update user status",
+        "description": "Changes status while preserving the user row history.",
+        "operationId": "updateStatus_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sites/{id}/status": {
+      "patch": {
+        "tags": [
+          "Inspection sites"
+        ],
+        "summary": "Update an inspection site status",
+        "description": "Changes status without deleting the site or its historical relationships.",
+        "operationId": "updateStatus_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInspectionSiteStatusRequest"
+              },
+              "example": {
+                "status": "INACTIVE"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Site status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionSiteResponse"
+                },
+                "example": {
+                  "id": "7ae3e623-419b-4adf-8da4-7f9bd7c3dd35",
+                  "clientId": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed",
+                  "name": "Unidade Sorocaba",
+                  "status": "INACTIVE",
+                  "version": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/equipment/{id}/status": {
+      "patch": {
+        "tags": [
+          "Equipment"
+        ],
+        "summary": "Update equipment status",
+        "description": "Updates status to ACTIVE, INACTIVE or DECOMMISSIONED without physical deletion.",
+        "operationId": "updateStatus_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEquipmentStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clients/{id}/status": {
+      "patch": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "Update a client status",
+        "description": "Changes status without deleting the client or its historical relationships.",
+        "operationId": "updateStatus_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClientStatusRequest"
+              },
+              "example": {
+                "status": "INACTIVE"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Client status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientResponse"
+                },
+                "example": {
+                  "id": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed",
+                  "name": "Industria Alfa",
+                  "status": "INACTIVE",
+                  "version": 2
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sites/{siteId}/equipment": {
+      "get": {
+        "tags": [
+          "Equipment"
+        ],
+        "summary": "List equipment for a site",
+        "description": "Returns equipment linked to the specified site ID.",
+        "operationId": "findBySite",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "DECOMMISSIONED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "createdAt,desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseEquipmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/equipment/by-qr/{qrCode}": {
+      "get": {
+        "tags": [
+          "Equipment"
+        ],
+        "summary": "Lookup equipment by QR Code",
+        "description": "Returns equipment matching the exact QR Code payload.",
+        "operationId": "findByQrCode",
+        "parameters": [
+          {
+            "name": "qrCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clients/{clientId}/sites": {
+      "get": {
+        "tags": [
+          "Inspection sites"
+        ],
+        "summary": "List sites for a client",
+        "description": "Returns only sites belonging to the requested client.",
+        "operationId": "findByClient",
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "createdAt,desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseInspectionSiteResponse"
+                }
+              }
+            }
+          }
         }
       }
     }
   },
   "components": {
-    "securitySchemes": {
-      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
-    },
-    "responses": {
-      "LoginResponse": {
-        "description": "Successful authentication",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } } }
-      },
-      "TokenResponse": {
-        "description": "Tokens renewed",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenResponse" } } }
-      },
-      "InspectionPage": {
-        "description": "Inspection page",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InspectionPage" } } }
-      },
-      "ValidationError": {
-        "description": "Invalid payload",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
-      },
-      "InvalidCredentials": {
-        "description": "Invalid credentials",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
-      },
-      "InvalidRefreshToken": {
-        "description": "Invalid or expired refresh token",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
-      },
-      "AuthenticationRequired": {
-        "description": "Authentication required",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
-      },
-      "ApiErrorResponse": {
-        "description": "Standardized API error",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
-      }
-    },
     "schemas": {
       "ApiError": {
-        "description": "Canonical error envelope returned by the API.",
         "type": "object",
-        "required": [ "timestamp", "status", "code", "message", "path", "requestId", "fieldErrors" ],
         "properties": {
-          "timestamp": { "type": "string", "format": "date-time" },
-          "status": { "type": "integer", "example": 400 },
-          "code": { "type": "string", "example": "VALIDATION_ERROR" },
-          "message": { "type": "string", "example": "Request validation failed" },
-          "path": { "type": "string", "example": "/api/v1/auth/login" },
-          "requestId": { "type": "string", "example": "8e5d8e75-821a-4153-9bf5-b30011ac3975" },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
           "fieldErrors": {
             "type": "array",
-            "items": { "type": "object", "properties": { "field": { "type": "string" }, "message": { "type": "string" } } }
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
           }
         }
       },
       "LoginRequest": {
         "type": "object",
-        "required": [ "email", "password" ],
         "properties": {
-          "email": { "type": "string", "format": "email", "example": "tecnico@fieldops.local" },
-          "password": { "type": "string", "format": "password", "example": "senha-informada-pelo-usuario", "writeOnly": true }
-        }
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "tecnico@fieldops.local"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "senha-informada-pelo-usuario"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
       },
       "TokenRequest": {
         "type": "object",
-        "required": [ "refreshToken" ],
-        "properties": { "refreshToken": { "type": "string", "example": "token-de-renovacao", "writeOnly": true } }
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "example": "token-de-renovacao"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
       },
       "LoginResponse": {
         "type": "object",
         "properties": {
-          "accessToken": { "type": "string", "example": "token" },
-          "refreshToken": { "type": "string", "example": "token-de-renovacao" },
-          "expiresIn": { "type": "integer", "format": "int64", "example": 900 },
-          "user": { "$ref": "#/components/schemas/AuthUser" }
+          "accessToken": {
+            "type": "string",
+            "example": "token"
+          },
+          "refreshToken": {
+            "type": "string",
+            "example": "token-de-renovacao"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "format": "int64",
+            "example": 900
+          },
+          "user": {
+            "$ref": "#/components/schemas/AuthUser"
+          }
         }
       },
       "TokenResponse": {
         "type": "object",
         "properties": {
-          "accessToken": { "type": "string", "example": "token" },
-          "refreshToken": { "type": "string", "example": "token-de-renovacao" },
-          "expiresIn": { "type": "integer", "format": "int64", "example": 900 }
+          "accessToken": {
+            "type": "string",
+            "example": "token"
+          },
+          "refreshToken": {
+            "type": "string",
+            "example": "token-de-renovacao"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "format": "int64",
+            "example": 900
+          }
         }
       },
       "AuthUser": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid", "example": "8a50e30d-0000-4000-8000-000000000001" },
-          "name": { "type": "string", "example": "Carlos Tecnico" },
-          "email": { "type": "string", "format": "email", "example": "tecnico@fieldops.local" },
-          "role": { "type": "string", "enum": [ "ADMIN", "SUPERVISOR", "TECHNICIAN", "CLIENT_VIEWER" ], "example": "TECHNICIAN" }
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8a50e30d-0000-4000-8000-000000000001"
+          },
+          "name": {
+            "type": "string",
+            "example": "Carlos Tecnico"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "tecnico@fieldops.local"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "SUPERVISOR",
+              "TECHNICIAN",
+              "CLIENT_VIEWER"
+            ],
+            "example": "TECHNICIAN"
+          }
         }
       },
       "InspectionPage": {
         "type": "object",
         "properties": {
-          "content": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string", "format": "uuid" }, "status": { "type": "string", "example": "PENDING" }, "scheduledAt": { "type": "string", "format": "date-time" } } } },
-          "page": { "type": "integer", "example": 0 },
-          "size": { "type": "integer", "example": 20 },
-          "totalElements": { "type": "integer", "format": "int64", "example": 1 },
-          "totalPages": { "type": "integer", "example": 1 },
-          "first": { "type": "boolean", "example": true },
-          "last": { "type": "boolean", "example": true }
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "example": "PENDING"
+                },
+                "scheduledAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "example": 20
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "first": {
+            "example": true
+          },
+          "last": {
+            "example": true
+          }
         }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "description": "Payload used to update a user's profile.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Maria Silva",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "maria.silva@example.com",
+            "maxLength": 320,
+            "minLength": 0
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "SUPERVISOR",
+              "TECHNICIAN",
+              "CLIENT_VIEWER"
+            ],
+            "example": "SUPERVISOR"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 11 99999-0000",
+            "maxLength": 32,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "role"
+        ]
+      },
+      "UserResponse": {
+        "type": "object",
+        "description": "Public representation of a FieldOps user.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed"
+          },
+          "name": {
+            "type": "string",
+            "example": "Maria Silva"
+          },
+          "email": {
+            "type": "string",
+            "example": "maria.silva@example.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "SUPERVISOR",
+              "TECHNICIAN",
+              "CLIENT_VIEWER"
+            ],
+            "example": "TECHNICIAN"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "BLOCKED"
+            ],
+            "example": "ACTIVE"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 11 99999-0000"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          }
+        }
+      },
+      "FieldError": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateInspectionSiteRequest": {
+        "type": "object",
+        "description": "Payload used to update a site without changing its client.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Unidade Sorocaba",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Fabrica principal",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "addressLine": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Av. das Industrias, 1000",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Sorocaba",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "SP",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "postalCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "18000-000",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": -23.5015,
+            "maximum": 90,
+            "minimum": -90
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": -47.4526,
+            "maximum": 180,
+            "minimum": -180
+          },
+          "contactName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Joao da Silva",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "contactPhone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 15 99999-0000",
+            "maxLength": 32,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "InspectionSiteResponse": {
+        "type": "object",
+        "description": "Public representation of a site linked to a client.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "7ae3e623-419b-4adf-8da4-7f9bd7c3dd35"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed"
+          },
+          "name": {
+            "type": "string",
+            "example": "Unidade Sorocaba"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Fabrica principal"
+          },
+          "addressLine": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Av. das Industrias, 1000"
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Sorocaba"
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "SP"
+          },
+          "postalCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "18000-000"
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": -23.5015
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": -47.4526
+          },
+          "contactName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Joao da Silva"
+          },
+          "contactPhone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 15 99999-0000"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "ACTIVE"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          }
+        }
+      },
+      "UpdateEquipmentRequest": {
+        "type": "object",
+        "description": "Payload used to update equipment details.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Compressor de Ar Industrial 20 HP",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "assetNumber": {
+            "type": "string",
+            "example": "AST-2026-001-REV",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "serialNumber": {
+            "type": "string",
+            "example": "SN-99887766",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "manufacturer": {
+            "type": "string",
+            "example": "Schulz",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "model": {
+            "type": "string",
+            "example": "MSV 20 MAX II",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "example": "Compressor revisado e reconfigurado",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "qrCode": {
+            "type": "string",
+            "example": "EQP-SITE-001-COMP-01",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "installedAt": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-01-15"
+          }
+        },
+        "required": [
+          "name",
+          "qrCode"
+        ]
+      },
+      "EquipmentResponse": {
+        "type": "object",
+        "description": "Equipment payload returned by the API.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "assetNumber": {
+            "type": "string"
+          },
+          "serialNumber": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "qrCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "DECOMMISSIONED"
+            ]
+          },
+          "installedAt": {
+            "type": "string",
+            "format": "date"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ClientResponse": {
+        "type": "object",
+        "description": "Public representation of a client.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed"
+          },
+          "name": {
+            "type": "string",
+            "example": "Industria Alfa"
+          },
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Industria Alfa Ltda"
+          },
+          "document": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "12345678000190"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "contato@industria-alfa.com.br"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 11 99999-0000"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "ACTIVE"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          }
+        }
+      },
+      "UpdateClientRequest": {
+        "type": "object",
+        "description": "Payload used to update a client profile.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Industria Alfa",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Industria Alfa Ltda",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "document": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "12.345.678/0001-90",
+            "maxLength": 18,
+            "minLength": 0,
+            "pattern": "^$|^[0-9]{11}$|^[0-9]{14}$|^[0-9]{3}\\.[0-9]{3}\\.[0-9]{3}-[0-9]{2}$|^[0-9]{2}\\.[0-9]{3}\\.[0-9]{3}/[0-9]{4}-[0-9]{2}$"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "email",
+            "example": "contato@industria-alfa.com.br",
+            "maxLength": 320,
+            "minLength": 0
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 11 99999-0000",
+            "maxLength": 32,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ResetPasswordResponse": {
+        "type": "object",
+        "description": "Temporary credential returned once after an administrator reset.",
+        "properties": {
+          "temporaryPassword": {
+            "type": "string",
+            "example": "mJ7qP2vR9xK4nT6wL8sC",
+            "readOnly": true
+          }
+        }
+      },
+      "CreateUserRequest": {
+        "type": "object",
+        "description": "Payload used to create a FieldOps user.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Maria Silva",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "maria.silva@example.com",
+            "maxLength": 320,
+            "minLength": 0
+          },
+          "password": {
+            "type": "string",
+            "example": "Str0ngP@ssword",
+            "maxLength": 128,
+            "minLength": 8,
+            "writeOnly": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "SUPERVISOR",
+              "TECHNICIAN",
+              "CLIENT_VIEWER"
+            ],
+            "example": "TECHNICIAN"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "BLOCKED"
+            ],
+            "example": "ACTIVE"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 11 99999-0000",
+            "maxLength": 32,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "password",
+          "role"
+        ]
+      },
+      "CreateInspectionSiteRequest": {
+        "type": "object",
+        "description": "Payload used to create a site linked to a client.",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "2fe4585d-6d89-4b1f-9125-b6a63fc8c2ed"
+          },
+          "name": {
+            "type": "string",
+            "example": "Unidade Sorocaba",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Fabrica principal",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "addressLine": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Av. das Industrias, 1000",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Sorocaba",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "SP",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "postalCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "18000-000",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": -23.5015,
+            "maximum": 90,
+            "minimum": -90
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": -47.4526,
+            "maximum": 180,
+            "minimum": -180
+          },
+          "contactName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Joao da Silva",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "contactPhone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 15 99999-0000",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "ACTIVE"
+          }
+        },
+        "required": [
+          "clientId",
+          "name"
+        ]
+      },
+      "CreateEquipmentRequest": {
+        "type": "object",
+        "description": "Payload used to register new equipment.",
+        "properties": {
+          "siteId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "name": {
+            "type": "string",
+            "example": "Compressor de Ar Industrial",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "assetNumber": {
+            "type": "string",
+            "example": "AST-2026-001",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "serialNumber": {
+            "type": "string",
+            "example": "SN-99887766",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "manufacturer": {
+            "type": "string",
+            "example": "Schulz",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "model": {
+            "type": "string",
+            "example": "MSV 20 MAX",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "example": "Compressor de pistao 20 pcm instalado na sala de maquinas",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "qrCode": {
+            "type": "string",
+            "example": "EQP-SITE-001-COMP-01",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "DECOMMISSIONED"
+            ],
+            "example": "ACTIVE"
+          },
+          "installedAt": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-01-15"
+          }
+        },
+        "required": [
+          "name",
+          "qrCode",
+          "siteId"
+        ]
+      },
+      "CreateClientRequest": {
+        "type": "object",
+        "description": "Payload used to create a client.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Industria Alfa",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Industria Alfa Ltda",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "document": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "12.345.678/0001-90",
+            "maxLength": 18,
+            "minLength": 0,
+            "pattern": "^$|^[0-9]{11}$|^[0-9]{14}$|^[0-9]{3}\\.[0-9]{3}\\.[0-9]{3}-[0-9]{2}$|^[0-9]{2}\\.[0-9]{3}\\.[0-9]{3}/[0-9]{4}-[0-9]{2}$"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "email",
+            "example": "contato@industria-alfa.com.br",
+            "maxLength": 320,
+            "minLength": 0
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "+55 11 99999-0000",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "ACTIVE"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "description": "Refresh token used to rotate a session.",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "example": "opaque-refresh-token",
+            "maxLength": 512,
+            "minLength": 0,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "AuthUserResponse": {
+        "type": "object",
+        "description": "Public identity returned by authentication endpoints.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "SUPERVISOR",
+              "TECHNICIAN",
+              "CLIENT_VIEWER"
+            ]
+          }
+        }
+      },
+      "UpdateUserStatusRequest": {
+        "type": "object",
+        "description": "Payload used to change a user status.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "BLOCKED"
+            ],
+            "example": "INACTIVE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateInspectionSiteStatusRequest": {
+        "type": "object",
+        "description": "Payload used to change a site status.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "INACTIVE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateEquipmentStatusRequest": {
+        "type": "object",
+        "description": "Payload used to update an equipment's operational status.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "DECOMMISSIONED"
+            ],
+            "example": "INACTIVE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateClientStatusRequest": {
+        "type": "object",
+        "description": "Payload used to change a client status.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "INACTIVE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "PageResponseUserResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageResponseEquipmentResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EquipmentResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InspectionSummaryResponse": {
+        "type": "object",
+        "description": "Inspection summary data used by dashboard and mobile lists.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3d8dc050-54f4-4d3b-9e5d-5fdb29ae3ed5"
+          },
+          "title": {
+            "type": "string",
+            "example": "Inspecao de Extintor - Planta Sul"
+          },
+          "status": {
+            "type": "string",
+            "example": "IN_PROGRESS"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-14T10:00:00Z"
+          }
+        }
+      },
+      "PageResponseInspectionSiteResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionSiteResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     }
   }
