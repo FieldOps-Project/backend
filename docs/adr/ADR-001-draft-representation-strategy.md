@@ -32,10 +32,28 @@ A draft version is represented by a row in `inspection_template_versions` where:
 Sections and items belonging to the draft use the exact same schema as
 published versions (`template_sections`, `template_items`).
 
-When the draft is published, a new row is inserted with
-`version_number = <next>`, `published_at = now()`, and the draft row
-(`version_number = 0`) is either deleted or replaced with a fresh empty draft
-for further editing.
+### Publication: copy the draft, keep the draft
+
+*Amended on 2026-10-23 for [FieldOps-Project/backend#14](https://github.com/FieldOps-Project/backend/issues/14).*
+
+When the draft is published, its sections and items are **deep-copied** into a
+new version row with `version_number = max(version_number) + 1`,
+`published_at = now()`, `published_by = <actor>` and
+`active_for_new_inspections = TRUE`. The draft row (`version_number = 0`) is
+kept untouched, so the next version starts from the content just published
+instead of from an empty draft.
+
+- The template row is locked (`SELECT ... FOR UPDATE`) while the next number is
+  computed, so concurrent publications get consecutive numbers; the
+  `UNIQUE(template_id, version_number)` constraint is the last line of defence.
+- Published rows are immutable in the application: every draft mutation calls
+  `InspectionTemplateVersion.ensureEditable()`, which rejects published
+  versions with `409 TEMPLATE_VERSION_PUBLISHED`. There is no database trigger.
+- The only field that changes after publication is
+  `active_for_new_inspections`, which retires a version for new scheduling
+  without affecting inspections that already use it (RN-022).
+- Publication validates the whole draft first and reports every pending issue
+  at once (`422 TEMPLATE_PUBLISH_INVALID` with `fieldErrors`).
 
 ## Consequences
 
@@ -43,8 +61,10 @@ for further editing.
 
 - **Single code path** — repositories, mappers, and validations work
   identically for drafts and published versions.
-- **No data migration on publish** — sections and items already exist in the
-  correct tables; only the version metadata changes.
+- **Publish is a plain copy** — sections and items are copied between rows of
+  the same tables; no structural mapping between draft and published schemas.
+- **Continuous editing** — the draft survives publication, so the builder can
+  keep evolving the template while earlier versions remain frozen.
 - **Simpler schema** — avoids duplicating four tables into eight.
 
 ### Negative
@@ -52,6 +72,8 @@ for further editing.
 - **Unique constraint awareness** — queries and application logic must account
   for `version_number = 0` being a reserved sentinel. The `UNIQUE(template_id,
   version_number)` index naturally prevents duplicates.
+- **Storage grows per version** — each publication duplicates the full
+  structure. Templates are small, so this is acceptable.
 - **Draft cleanup** — if a template is deleted, the cascade must also remove
   the draft version and its children (handled by `ON DELETE CASCADE` on FKs).
 
