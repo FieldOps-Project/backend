@@ -12,6 +12,7 @@ public final class AuthorizationPolicies {
     public static final String USERS_MANAGE = "hasRole('ADMIN')";
     public static final String USERS_READ = "hasAnyRole('ADMIN', 'SUPERVISOR')";
     public static final String CATALOG_MANAGE = "hasAnyRole('ADMIN', 'SUPERVISOR')";
+    public static final String TEMPLATES_MANAGE = "hasAnyRole('ADMIN', 'SUPERVISOR')";
     public static final String INSPECTIONS_SCHEDULE = "hasAnyRole('ADMIN', 'SUPERVISOR')";
     public static final String INSPECTIONS_EXECUTE = "hasRole('TECHNICIAN')";
     public static final String INSPECTIONS_REVIEW = "hasRole('SUPERVISOR')";

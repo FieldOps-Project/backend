@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
@@ -59,6 +60,11 @@ class GlobalExceptionHandlerTest {
         void conflict() {
             throw new ConflictException("EMAIL_ALREADY_EXISTS",
                     "A user with this email already exists");
+        }
+
+        @PutMapping("/data-conflict")
+        void dataConflict() {
+            throw new DataIntegrityViolationException("duplicate key value violates unique constraint \"ux_item_order\"");
         }
 
         @PostMapping("/business-rule")
@@ -121,6 +127,17 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_EXISTS"))
                 .andExpect(jsonPath("$.requestId").isNotEmpty())
                 .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    @DisplayName("DataIntegrityViolationException → 409 without database details")
+    void dataIntegrityViolation_returns409WithoutSqlDetails() throws Exception {
+        mockMvc.perform(put("/test/data-conflict"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.code").value("DATA_CONFLICT"))
+                .andExpect(jsonPath("$.message", not(containsString("ux_item_order"))))
+                .andExpect(jsonPath("$.requestId").isNotEmpty());
     }
 
     // ── 422 Business Rule ───────────────────────────────────────────────

@@ -6,6 +6,10 @@ import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
 import com.fieldops.client.infrastructure.persistence.ClientRepository;
 import com.fieldops.client.infrastructure.persistence.InspectionSiteRepository;
 import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVersionRepository;
+import com.fieldops.inspection.infrastructure.persistence.TemplateItemRepository;
+import com.fieldops.inspection.infrastructure.persistence.TemplateSectionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
@@ -38,6 +42,18 @@ class FieldopsApiApplicationTests {
 
 	@MockitoBean
 	private EquipmentRepository equipmentRepository;
+
+	@MockitoBean
+	private InspectionTemplateRepository inspectionTemplateRepository;
+
+	@MockitoBean
+	private InspectionTemplateVersionRepository inspectionTemplateVersionRepository;
+
+	@MockitoBean
+	private TemplateSectionRepository templateSectionRepository;
+
+	@MockitoBean
+	private TemplateItemRepository templateItemRepository;
 
 	@MockitoBean
 	private JpaMetamodelMappingContext jpaMetamodelMappingContext;

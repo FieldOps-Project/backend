@@ -53,7 +53,7 @@ class InspectionTemplateMigrationTest {
     @Test
     void migrationContainsVersionNumberUniqueConstraint() throws Exception {
         ClassPathResource resource = new ClassPathResource("db/migration/V9__create_inspection_templates.sql");
-        String content = new String(resource.getInputStream().readAllBytes());
+        String content = new String(resource.getInputStream().readAllBytes()).replaceAll("\\s+", " ");
 
         assertThat(content).contains("UNIQUE INDEX ux_tpl_version ON inspection_template_versions (template_id, version_number)");
     }

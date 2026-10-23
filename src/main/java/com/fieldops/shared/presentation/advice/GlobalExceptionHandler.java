@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -111,6 +112,19 @@ public class GlobalExceptionHandler {
                                                    HttpServletRequest request) {
         ApiError body = buildError(HttpStatus.CONFLICT, ex.getCode(), ex.getMessage(), request);
         log.warn("Conflict: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex,
+                                                        HttpServletRequest request) {
+        ApiError body = buildError(
+                HttpStatus.CONFLICT,
+                "DATA_CONFLICT",
+                "The request conflicts with the current state of the resource. Reload and try again.",
+                request
+        );
+        log.warn("Data integrity violation on {} {}", request.getMethod(), request.getRequestURI());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 

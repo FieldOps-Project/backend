@@ -11,6 +11,10 @@ import com.fieldops.client.infrastructure.persistence.InspectionSiteRepository;
 import com.fieldops.equipment.domain.model.Equipment;
 import com.fieldops.equipment.domain.model.EquipmentStatus;
 import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVersionRepository;
+import com.fieldops.inspection.infrastructure.persistence.TemplateItemRepository;
+import com.fieldops.inspection.infrastructure.persistence.TemplateSectionRepository;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,6 +72,18 @@ class EquipmentAuthorizationTest {
 
     @MockitoBean
     private AuditEventRepository auditEventRepository;
+
+    @MockitoBean
+    private InspectionTemplateRepository inspectionTemplateRepository;
+
+    @MockitoBean
+    private InspectionTemplateVersionRepository inspectionTemplateVersionRepository;
+
+    @MockitoBean
+    private TemplateSectionRepository templateSectionRepository;
+
+    @MockitoBean
+    private TemplateItemRepository templateItemRepository;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;

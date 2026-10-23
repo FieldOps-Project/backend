@@ -79,6 +79,10 @@ public class TemplateSection {
         items.add(item);
     }
 
+    public void removeItem(TemplateItem item) {
+        items.remove(item);
+    }
+
     public void updateMetadata(String title, String description) {
         this.title = requireText(title, "title");
         this.description = normalizeOptional(description);
