@@ -1,0 +1,254 @@
+package com.fieldops.inspection.application;
+
+import com.fieldops.audit.infrastructure.persistence.AuditEventRepository;
+import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
+import com.fieldops.client.infrastructure.persistence.ClientRepository;
+import com.fieldops.client.infrastructure.persistence.InspectionSiteRepository;
+import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
+import com.fieldops.inspection.domain.model.InspectionTemplate;
+import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
+import com.fieldops.inspection.domain.model.ResponseType;
+import com.fieldops.inspection.domain.model.TemplateItem;
+import com.fieldops.inspection.domain.model.TemplateSection;
+import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVersionRepository;
+import com.fieldops.inspection.infrastructure.persistence.TemplateItemRepository;
+import com.fieldops.inspection.infrastructure.persistence.TemplateSectionRepository;
+import com.fieldops.user.infrastructure.persistence.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest(properties = {
+        "spring.autoconfigure.exclude="
+                + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,"
+                + "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration,"
+                + "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration",
+        "JWT_SECRET=local-test-secret-012345678901234567890123456789",
+        "app.security.jwt.secret=local-test-secret-012345678901234567890123456789"
+})
+@AutoConfigureMockMvc
+class InspectionTemplateAuthorizationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private InspectionTemplateRepository inspectionTemplateRepository;
+
+    @MockitoBean
+    private InspectionTemplateVersionRepository inspectionTemplateVersionRepository;
+
+    @MockitoBean
+    private TemplateSectionRepository templateSectionRepository;
+
+    @MockitoBean
+    private TemplateItemRepository templateItemRepository;
+
+    @MockitoBean
+    private ClientRepository clientRepository;
+
+    @MockitoBean
+    private InspectionSiteRepository inspectionSiteRepository;
+
+    @MockitoBean
+    private EquipmentRepository equipmentRepository;
+
+    @MockitoBean
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @MockitoBean
+    private AuditEventRepository auditEventRepository;
+
+    @MockitoBean
+    private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    private UUID templateId;
+    private InspectionTemplate template;
+    private InspectionTemplateVersion draft;
+    private TemplateSection section;
+
+    @BeforeEach
+    void setUp() {
+        templateId = UUID.randomUUID();
+        template = withId(InspectionTemplate.create("Extintores", null, "Incendio", UUID.randomUUID()), templateId);
+        draft = withId(InspectionTemplateVersion.createDraft(template, "Extintores", null), UUID.randomUUID());
+        section = withId(TemplateSection.create(draft, "Condicoes", null, 1), UUID.randomUUID());
+        draft.addSection(section);
+
+        when(inspectionTemplateRepository.existsById(templateId)).thenReturn(true);
+        when(inspectionTemplateVersionRepository.findByTemplateIdAndVersionNumber(templateId, 0))
+                .thenReturn(Optional.of(draft));
+        when(templateSectionRepository.findById(section.getId())).thenReturn(Optional.of(section));
+        when(templateItemRepository.saveAndFlush(any(TemplateItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @Test
+    void technicianGetsForbiddenFromTemplateBuilder() throws Exception {
+        mockMvc.perform(get("/api/v1/inspection-templates/{id}", templateId)
+                        .with(user("technician").roles("TECHNICIAN")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    void clientViewerCannotCreateSections() throws Exception {
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/sections", templateId)
+                        .with(user("viewer").roles("CLIENT_VIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Nova secao\"}"))
+                .andExpect(status().isForbidden());
+
+        verify(templateSectionRepository, never()).saveAndFlush(any(TemplateSection.class));
+    }
+
+    @Test
+    void supervisorReadsTemplateWithOrderedDraftStructure() throws Exception {
+        mockMvc.perform(get("/api/v1/inspection-templates/{id}", templateId)
+                        .with(user("supervisor").roles("SUPERVISOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(templateId.toString()))
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.draftVersionId").value(draft.getId().toString()))
+                .andExpect(jsonPath("$.sections", hasSize(1)))
+                .andExpect(jsonPath("$.sections[0].title").value("Condicoes"));
+    }
+
+    @Test
+    void adminCreatesItemWithConfiguredFailureRules() throws Exception {
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/sections/{sectionId}/items", templateId, section.getId())
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "A protecao do equipamento esta integra?",
+                                  "responseType": "CONFORMITY",
+                                  "required": true,
+                                  "observationRequiredOnFailure": true,
+                                  "evidenceRequiredOnFailure": true
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sectionId").value(section.getId().toString()))
+                .andExpect(jsonPath("$.responseType").value("CONFORMITY"))
+                .andExpect(jsonPath("$.evidenceRequiredOnFailure").value(true))
+                .andExpect(jsonPath("$.displayOrder").value(1))
+                .andExpect(jsonPath("$.options", hasSize(0)));
+    }
+
+    @Test
+    void itemWithoutResponseTypeIsRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/sections/{sectionId}/items", templateId, section.getId())
+                        .with(user("supervisor").roles("SUPERVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Sem tipo\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("responseType"));
+    }
+
+    @Test
+    void unsupportedResponseTypeIsRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/sections/{sectionId}/items", templateId, section.getId())
+                        .with(user("supervisor").roles("SUPERVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Assinatura\",\"responseType\":\"SIGNATURE\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void singleChoiceWithOneOptionIsRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/sections/{sectionId}/items", templateId, section.getId())
+                        .with(user("supervisor").roles("SUPERVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Estado\",\"responseType\":\"SINGLE_CHOICE\",\"options\":[\"Bom\"]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_ITEM_OPTIONS_REQUIRED"));
+    }
+
+    @Test
+    void optionsForUnsupportedTypeAreRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/sections/{sectionId}/items", templateId, section.getId())
+                        .with(user("supervisor").roles("SUPERVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Lacre\",\"responseType\":\"BOOLEAN\",\"options\":[\"Sim\",\"Nao\"]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_ITEM_OPTIONS_NOT_ALLOWED"));
+    }
+
+    @Test
+    void evidenceOnFailureForDateItemIsRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/sections/{sectionId}/items", templateId, section.getId())
+                        .with(user("supervisor").roles("SUPERVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Validade\",\"responseType\":\"DATE\",\"evidenceRequiredOnFailure\":true}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_ITEM_FAILURE_RULES_NOT_ALLOWED"));
+    }
+
+    @Test
+    void editingSectionOfPublishedVersionReturnsConflict() throws Exception {
+        InspectionTemplateVersion published = InspectionTemplateVersion.createPublished(
+                template, 1, "Extintores", null, UUID.randomUUID()
+        );
+        TemplateSection publishedSection = withId(TemplateSection.create(published, "Publicada", null, 1), UUID.randomUUID());
+        when(templateSectionRepository.findById(publishedSection.getId())).thenReturn(Optional.of(publishedSection));
+
+        mockMvc.perform(put("/api/v1/inspection-templates/{id}/sections/{sectionId}", templateId, publishedSection.getId())
+                        .with(user("supervisor").roles("SUPERVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Alterada\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_VERSION_PUBLISHED"));
+    }
+
+    @Test
+    void reorderWithIncompleteListReturnsUnprocessableEntity() throws Exception {
+        mockMvc.perform(put("/api/v1/inspection-templates/{id}/sections/order", templateId)
+                        .with(user("supervisor").roles("SUPERVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sectionIds\":[\"" + UUID.randomUUID() + "\"]}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_REORDER_MISMATCH"));
+    }
+
+    @Test
+    void deletingDraftSectionReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/api/v1/inspection-templates/{id}/sections/{sectionId}", templateId, section.getId())
+                        .with(user("supervisor").roles("SUPERVISOR")))
+                .andExpect(status().isNoContent());
+    }
+
+    private static <T> T withId(T entity, UUID id) {
+        ReflectionTestUtils.setField(entity, "id", id);
+        return entity;
+    }
+}
