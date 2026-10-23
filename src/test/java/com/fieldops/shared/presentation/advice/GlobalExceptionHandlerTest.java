@@ -3,6 +3,7 @@ package com.fieldops.shared.presentation.advice;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.ConflictException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
+import com.fieldops.shared.domain.exception.Violation;
 import com.fieldops.shared.infrastructure.filter.RequestIdFilter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -15,6 +16,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -71,6 +74,16 @@ class GlobalExceptionHandlerTest {
         void businessRule() {
             throw new BusinessRuleException("INSPECTION_ALREADY_SUBMITTED",
                     "Cannot edit an inspection that has already been submitted");
+        }
+
+        @PostMapping("/business-rule-violations")
+        void businessRuleWithViolations() {
+            throw new BusinessRuleException("TEMPLATE_PUBLISH_INVALID",
+                    "The draft has 2 pending issue(s) that block publication",
+                    List.of(
+                            new Violation("sections", "Template must have at least one section"),
+                            new Violation("category", "Template category is required")
+                    ));
         }
 
         @GetMapping("/forbidden")
@@ -150,8 +163,21 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.status").value(422))
                 .andExpect(jsonPath("$.code").value("INSPECTION_ALREADY_SUBMITTED"))
+                .andExpect(jsonPath("$.fieldErrors", hasSize(0)))
                 .andExpect(jsonPath("$.requestId").isNotEmpty())
                 .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    @DisplayName("BusinessRuleException with violations → 422 listing them as fieldErrors")
+    void businessRuleWithViolations_returns422WithFieldErrors() throws Exception {
+        mockMvc.perform(post("/test/business-rule-violations"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_PUBLISH_INVALID"))
+                .andExpect(jsonPath("$.fieldErrors", hasSize(2)))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("sections"))
+                .andExpect(jsonPath("$.fieldErrors[1].field").value("category"))
+                .andExpect(jsonPath("$.fieldErrors[1].message").value("Template category is required"));
     }
 
     @Test
