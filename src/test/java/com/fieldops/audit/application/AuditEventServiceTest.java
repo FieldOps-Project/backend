@@ -61,5 +61,31 @@ class AuditEventServiceTest {
         assertThat(event.getAfterValues()).isEqualTo("after");
         assertThat(event.getBeforeValues()).doesNotContain("password");
         assertThat(event.getAfterValues()).doesNotContain("password");
+        assertThat(event.getEntityType()).isEqualTo("USER");
+    }
+
+    @Test
+    void recordsEventsForOtherEntityTypes() {
+        UUID actorId = UUID.randomUUID();
+        UUID versionId = UUID.randomUUID();
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                "jwt-principal",
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_SUPERVISOR"))
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        when(authenticatedUserResolver.requireUserId(authentication)).thenReturn(actorId);
+
+        AuditEventService service = new AuditEventService(auditEventRepository, authenticatedUserResolver);
+        service.recordEvent("TEMPLATE_VERSION_PUBLISHED", "INSPECTION_TEMPLATE_VERSION", versionId, null, "{\"versionNumber\":1}");
+
+        ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditEventRepository).save(eventCaptor.capture());
+        AuditEvent event = eventCaptor.getValue();
+        assertThat(event.getActorUserId()).isEqualTo(actorId);
+        assertThat(event.getEntityType()).isEqualTo("INSPECTION_TEMPLATE_VERSION");
+        assertThat(event.getEntityId()).isEqualTo(versionId);
+        assertThat(event.getBeforeValues()).isNull();
+        assertThat(event.getAfterValues()).isEqualTo("{\"versionNumber\":1}");
     }
 }
