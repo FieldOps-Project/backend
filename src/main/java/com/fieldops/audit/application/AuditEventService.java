@@ -34,14 +34,25 @@ public class AuditEventService {
             String beforeValues,
             String afterValues
     ) {
+        recordEvent(action, USER_ENTITY, userId, beforeValues, afterValues);
+    }
+
+    @Transactional
+    public void recordEvent(
+            String action,
+            String entityType,
+            UUID entityId,
+            String beforeValues,
+            String afterValues
+    ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UUID actorUserId = authenticatedUserResolver.requireUserId(authentication);
 
         auditEventRepository.save(AuditEvent.create(
                 actorUserId,
                 action,
-                USER_ENTITY,
-                userId,
+                entityType,
+                entityId,
                 beforeValues,
                 afterValues,
                 Instant.now()
