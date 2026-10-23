@@ -80,4 +80,18 @@ class TemplateSectionTest {
         assertThat(section.getItems()).hasSize(1);
         assertThat(section.getItems().get(0).getCode()).isEqualTo("EXT-001");
     }
+
+    @Test
+    void removeItem_removesItemFromList() {
+        TemplateSection section = TemplateSection.create(sampleVersion(), "Secao", "Desc", 1);
+        TemplateItem item = TemplateItem.create(
+                section, null, "Extintor carregado?", null,
+                ResponseType.BOOLEAN, true, false, false, null, 1
+        );
+        section.addItem(item);
+
+        section.removeItem(item);
+
+        assertThat(section.getItems()).isEmpty();
+    }
 }
