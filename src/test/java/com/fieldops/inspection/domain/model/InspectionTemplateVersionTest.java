@@ -1,5 +1,6 @@
 package com.fieldops.inspection.domain.model;
 
+import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.ConflictException;
 import org.junit.jupiter.api.Test;
 
@@ -128,5 +129,73 @@ class InspectionTemplateVersionTest {
         assertThatThrownBy(() -> published.updateSnapshot("New", null))
                 .isInstanceOf(ConflictException.class);
         assertThat(published.getTitleSnapshot()).isEqualTo("T");
+    }
+
+    @Test
+    void publishCopyOf_copiesDraftStructureIntoIndependentVersion() {
+        InspectionTemplate template = sampleTemplate();
+        InspectionTemplateVersion draft = InspectionTemplateVersion.createDraft(template, "Template", "Desc");
+        TemplateSection section = TemplateSection.create(draft, "Secao 1", "Desc secao", 1);
+        section.addItem(TemplateItem.create(
+                section, "EXT-01", "Lacre", null, ResponseType.SINGLE_CHOICE,
+                true, false, false, "[\"Sim\",\"Nao\"]", 1
+        ));
+        draft.addSection(section);
+        UUID publishedBy = UUID.randomUUID();
+
+        InspectionTemplateVersion published = InspectionTemplateVersion.publishCopyOf(draft, 3, publishedBy);
+
+        assertThat(published.getVersionNumber()).isEqualTo(3);
+        assertThat(published.getPublishedBy()).isEqualTo(publishedBy);
+        assertThat(published.isActiveForNewInspections()).isTrue();
+        assertThat(published.getTitleSnapshot()).isEqualTo("Template");
+        TemplateSection copiedSection = published.getSections().get(0);
+        assertThat(copiedSection).isNotSameAs(section);
+        assertThat(copiedSection.getTemplateVersion()).isSameAs(published);
+        assertThat(copiedSection.getTitle()).isEqualTo("Secao 1");
+        TemplateItem copiedItem = copiedSection.getItems().get(0);
+        assertThat(copiedItem.getSection()).isSameAs(copiedSection);
+        assertThat(copiedItem.getCode()).isEqualTo("EXT-01");
+        assertThat(copiedItem.getOptionsJson()).isEqualTo("[\"Sim\",\"Nao\"]");
+
+        section.updateMetadata("Secao editada", null);
+        draft.removeSection(section);
+
+        assertThat(draft.isDraft()).isTrue();
+        assertThat(published.getSections()).hasSize(1);
+        assertThat(copiedSection.getTitle()).isEqualTo("Secao 1");
+    }
+
+    @Test
+    void publishCopyOf_rejectsPublishedSource() {
+        InspectionTemplateVersion published = InspectionTemplateVersion.createPublished(
+                sampleTemplate(), 1, "T", "D", UUID.randomUUID()
+        );
+
+        assertThatThrownBy(() -> InspectionTemplateVersion.publishCopyOf(published, 2, UUID.randomUUID()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void updateAvailability_togglesPublishedVersion() {
+        InspectionTemplateVersion published = InspectionTemplateVersion.createPublished(
+                sampleTemplate(), 1, "T", "D", UUID.randomUUID()
+        );
+
+        published.updateAvailability(false);
+        assertThat(published.isActiveForNewInspections()).isFalse();
+
+        published.updateAvailability(true);
+        assertThat(published.isActiveForNewInspections()).isTrue();
+    }
+
+    @Test
+    void updateAvailability_rejectsDraft() {
+        InspectionTemplateVersion draft = InspectionTemplateVersion.createDraft(sampleTemplate(), "T", "D");
+
+        assertThatThrownBy(() -> draft.updateAvailability(true))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasFieldOrPropertyWithValue("code", "TEMPLATE_VERSION_NOT_PUBLISHED");
+        assertThat(draft.isActiveForNewInspections()).isFalse();
     }
 }
