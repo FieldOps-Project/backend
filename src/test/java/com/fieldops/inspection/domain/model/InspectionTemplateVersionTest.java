@@ -1,5 +1,6 @@
 package com.fieldops.inspection.domain.model;
 
+import com.fieldops.shared.domain.exception.ConflictException;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -77,5 +78,55 @@ class InspectionTemplateVersionTest {
 
         assertThat(version.getSections()).hasSize(1);
         assertThat(version.getSections().get(0).getTitle()).isEqualTo("Secao 1");
+    }
+
+    @Test
+    void removeSection_removesSectionFromList() {
+        InspectionTemplateVersion version = InspectionTemplateVersion.createDraft(sampleTemplate(), "T", "D");
+        TemplateSection section = TemplateSection.create(version, "Secao 1", null, 1);
+        version.addSection(section);
+
+        version.removeSection(section);
+
+        assertThat(version.getSections()).isEmpty();
+    }
+
+    @Test
+    void ensureEditable_acceptsDraft() {
+        InspectionTemplateVersion draft = InspectionTemplateVersion.createDraft(sampleTemplate(), "T", "D");
+
+        draft.ensureEditable();
+    }
+
+    @Test
+    void ensureEditable_rejectsPublishedVersionWithConflict() {
+        InspectionTemplateVersion published = InspectionTemplateVersion.createPublished(
+                sampleTemplate(), 1, "T", "D", UUID.randomUUID()
+        );
+
+        assertThatThrownBy(published::ensureEditable)
+                .isInstanceOf(ConflictException.class)
+                .hasFieldOrPropertyWithValue("code", "TEMPLATE_VERSION_PUBLISHED");
+    }
+
+    @Test
+    void updateSnapshot_changesDraftTitleAndDescription() {
+        InspectionTemplateVersion draft = InspectionTemplateVersion.createDraft(sampleTemplate(), "Old", "Old desc");
+
+        draft.updateSnapshot(" New ", "  ");
+
+        assertThat(draft.getTitleSnapshot()).isEqualTo("New");
+        assertThat(draft.getDescriptionSnapshot()).isNull();
+    }
+
+    @Test
+    void updateSnapshot_rejectsPublishedVersion() {
+        InspectionTemplateVersion published = InspectionTemplateVersion.createPublished(
+                sampleTemplate(), 1, "T", "D", UUID.randomUUID()
+        );
+
+        assertThatThrownBy(() -> published.updateSnapshot("New", null))
+                .isInstanceOf(ConflictException.class);
+        assertThat(published.getTitleSnapshot()).isEqualTo("T");
     }
 }
