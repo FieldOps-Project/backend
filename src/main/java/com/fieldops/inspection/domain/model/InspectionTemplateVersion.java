@@ -1,5 +1,6 @@
 package com.fieldops.inspection.domain.model;
 
+import com.fieldops.shared.domain.exception.ConflictException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -125,8 +126,30 @@ public class InspectionTemplateVersion {
         sections.add(section);
     }
 
+    public void removeSection(TemplateSection section) {
+        sections.remove(section);
+    }
+
+    public void updateSnapshot(String titleSnapshot, String descriptionSnapshot) {
+        ensureEditable();
+        this.titleSnapshot = requireText(titleSnapshot, "titleSnapshot");
+        this.descriptionSnapshot = normalizeOptional(descriptionSnapshot);
+    }
+
     public boolean isDraft() {
         return publishedAt == null;
+    }
+
+    /**
+     * Guards RN-019: only the working draft accepts structural changes.
+     */
+    public void ensureEditable() {
+        if (!isDraft()) {
+            throw new ConflictException(
+                    "TEMPLATE_VERSION_PUBLISHED",
+                    "Published template versions cannot be changed; edit the draft and publish a new version"
+            );
+        }
     }
 
     // ── Getters ──────────────────────────────────────────────
