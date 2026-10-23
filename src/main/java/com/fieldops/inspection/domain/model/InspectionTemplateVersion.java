@@ -1,5 +1,6 @@
 package com.fieldops.inspection.domain.model;
 
+import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.ConflictException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -120,6 +121,59 @@ public class InspectionTemplateVersion {
         v.publishedAt = Instant.now();
         v.activeForNewInspections = true;
         return v;
+    }
+
+    /**
+     * Publishes a frozen copy of the draft (ADR-001): sections and items are
+     * duplicated into the new version, so later draft edits never reach it.
+     */
+    public static InspectionTemplateVersion publishCopyOf(
+            InspectionTemplateVersion draft,
+            int versionNumber,
+            UUID publishedBy
+    ) {
+        if (!draft.isDraft()) {
+            throw new IllegalArgumentException("only a draft version can be published");
+        }
+        InspectionTemplate template = draft.getTemplate();
+        InspectionTemplateVersion published = createPublished(
+                template, versionNumber, template.getTitle(), template.getDescription(), publishedBy
+        );
+        for (TemplateSection section : draft.getSections()) {
+            TemplateSection sectionCopy = TemplateSection.create(
+                    published, section.getTitle(), section.getDescription(), section.getDisplayOrder()
+            );
+            for (TemplateItem item : section.getItems()) {
+                sectionCopy.addItem(TemplateItem.create(
+                        sectionCopy,
+                        item.getCode(),
+                        item.getTitle(),
+                        item.getDescription(),
+                        item.getResponseType(),
+                        item.isRequired(),
+                        item.isObservationRequiredOnFailure(),
+                        item.isEvidenceRequiredOnFailure(),
+                        item.getOptionsJson(),
+                        item.getDisplayOrder()
+                ));
+            }
+            published.addSection(sectionCopy);
+        }
+        return published;
+    }
+
+    /**
+     * Retires or restores the version for new scheduling (RN-022) without
+     * touching inspections that already use it.
+     */
+    public void updateAvailability(boolean activeForNewInspections) {
+        if (isDraft()) {
+            throw new BusinessRuleException(
+                    "TEMPLATE_VERSION_NOT_PUBLISHED",
+                    "Only published versions can be made available for new inspections"
+            );
+        }
+        this.activeForNewInspections = activeForNewInspections;
     }
 
     public void addSection(TemplateSection section) {
