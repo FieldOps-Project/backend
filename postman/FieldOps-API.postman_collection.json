@@ -64,6 +64,31 @@
       "key": "qrCode",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "templateId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sectionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sectionId2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "itemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "itemId2",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -1280,6 +1305,799 @@
               }
             }
           }
+        }
+      ]
+    },
+    {
+      "name": "Inspection Templates",
+      "description": "Construtor de modelos (rascunho). Perfis ADMIN e SUPERVISOR. Toda alteracao estrutural atua na versao de rascunho; secoes e itens de versao publicada devolvem 409 TEMPLATE_VERSION_PUBLISHED.",
+      "item": [
+        {
+          "name": "Create template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates"
+              ]
+            },
+            "description": "Cria o modelo em DRAFT com um rascunho vazio. Titulo unico (409 TEMPLATE_TITLE_ALREADY_EXISTS).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Checklist de extintores {{$timestamp}}\",\n  \"description\": \"Inspecao mensal dos extintores de incendio.\",\n  \"category\": \"Seguranca contra incendio\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code < 300) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('templateId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List templates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates?search=&status=DRAFT&category=&page=0&size=20&sort=createdAt,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "DRAFT",
+                  "disabled": true
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "description": "Zero-based"
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "Padrao 20, maximo 100"
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt,desc"
+                }
+              ]
+            },
+            "description": "status: DRAFT | ACTIVE | INACTIVE. sort: title | category | status | createdAt | updatedAt."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get template with draft",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}"
+              ]
+            },
+            "description": "Metadados do modelo com secoes e itens do rascunho, ordenados por displayOrder."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update template metadata",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Checklist de extintores {{$timestamp}} rev\",\n  \"description\": \"Inspecao mensal revisada.\",\n  \"category\": \"Seguranca contra incendio\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create section",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections"
+              ]
+            },
+            "description": "Sem displayOrder, adiciona no fim.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Condicoes fisicas\",\n  \"description\": \"Estado do cilindro, lacre e manometro.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code < 300) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('sectionId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create section at position",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections"
+              ]
+            },
+            "description": "displayOrder (1-based) insere na posicao e empurra as secoes seguintes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Identificacao\",\n  \"displayOrder\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code < 300) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('sectionId2', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update section",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections/{{sectionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections",
+                "{{sectionId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Condicoes fisicas do extintor\",\n  \"description\": \"Cilindro, lacre, manometro e mangueira.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reorder sections",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections/order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections",
+                "order"
+              ]
+            },
+            "description": "Lista completa de ids na nova ordem. Faltando ou repetindo id: 422 TEMPLATE_REORDER_MISMATCH.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sectionIds\": [\n    \"{{sectionId}}\",\n    \"{{sectionId2}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create item (CONFORMITY)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections/{{sectionId}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections",
+                "{{sectionId}}",
+                "items"
+              ]
+            },
+            "description": "responseType: TEXT_SHORT | TEXT_LONG | NUMBER | BOOLEAN | CONFORMITY | SINGLE_CHOICE | DATE. Observacao/evidencia na falha so para CONFORMITY e BOOLEAN.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"EXT-03\",\n  \"title\": \"A protecao do equipamento esta integra?\",\n  \"description\": \"Verifique trincas, ausencia de parafusos e partes soltas.\",\n  \"responseType\": \"CONFORMITY\",\n  \"required\": true,\n  \"observationRequiredOnFailure\": true,\n  \"evidenceRequiredOnFailure\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code < 300) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('itemId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create item (SINGLE_CHOICE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections/{{sectionId}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections",
+                "{{sectionId}}",
+                "items"
+              ]
+            },
+            "description": "SINGLE_CHOICE exige ao menos duas opcoes unicas; outros tipos rejeitam options.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Estado geral do cilindro\",\n  \"responseType\": \"SINGLE_CHOICE\",\n  \"options\": [\n    \"Bom\",\n    \"Regular\",\n    \"Ruim\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code < 300) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('itemId2', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/items/{{itemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "items",
+                "{{itemId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"EXT-03\",\n  \"title\": \"A protecao do equipamento esta integra?\",\n  \"responseType\": \"CONFORMITY\",\n  \"required\": true,\n  \"observationRequiredOnFailure\": true,\n  \"evidenceRequiredOnFailure\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reorder items",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections/{{sectionId}}/items/order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections",
+                "{{sectionId}}",
+                "items",
+                "order"
+              ]
+            },
+            "description": "Lista completa dos itens da secao na nova ordem, aplicada em uma unica transacao.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemIds\": [\n    \"{{itemId2}}\",\n    \"{{itemId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject item without response type (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections/{{sectionId}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections",
+                "{{sectionId}}",
+                "items"
+              ]
+            },
+            "description": "RN-016: todo item precisa de tipo de resposta. 400 VALIDATION_ERROR no campo responseType.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Item sem tipo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject single choice with one option (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections/{{sectionId}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections",
+                "{{sectionId}}",
+                "items"
+              ]
+            },
+            "description": "400 TEMPLATE_ITEM_OPTIONS_REQUIRED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Estado\",\n  \"responseType\": \"SINGLE_CHOICE\",\n  \"options\": [\n    \"Bom\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/items/{{itemId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "items",
+                "{{itemId2}}"
+              ]
+            },
+            "description": "So em rascunho. Renumera os itens restantes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete section",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/sections/{{sectionId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "sections",
+                "{{sectionId2}}"
+              ]
+            },
+            "description": "So em rascunho. Remove os itens da secao e renumera as secoes restantes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
