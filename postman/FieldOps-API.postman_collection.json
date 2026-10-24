@@ -89,6 +89,16 @@
       "key": "itemId2",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "emptyTemplateId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "versionId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -2093,6 +2103,523 @@
                 "exec": [
                   "pm.test('Status is 204', function () {",
                   "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Inspection Template Versions",
+      "description": "Publicacao de versoes imutaveis (UC-05). Perfis ADMIN e SUPERVISOR. Rode depois de \"Inspection Templates\", que monta o rascunho publicado aqui.",
+      "item": [
+        {
+          "name": "Create empty template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates"
+              ]
+            },
+            "description": "Modelo sem secoes, usado para mostrar a validacao da publicacao.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Modelo vazio {{$timestamp}}\",\n  \"category\": \"Seguranca contra incendio\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code < 300) {",
+                  "    pm.collectionVariables.set('emptyTemplateId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject publishing invalid draft (422)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{emptyTemplateId}}/publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{emptyTemplateId}}",
+                "publish"
+              ]
+            },
+            "description": "Lista todas as pendencias de uma vez em fieldErrors (secao sem item, opcoes faltando, tipo nao suportado...)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('Lists pending issues', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql('TEMPLATE_PUBLISH_INVALID');",
+                  "    pm.expect(json.fieldErrors[0].field).to.eql('sections');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Publish draft",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "publish"
+              ]
+            },
+            "description": "Congela uma copia do rascunho como a proxima versao numerada. O rascunho continua editavel; a primeira publicacao deixa o modelo ACTIVE."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code < 300) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('versionId', json.id);",
+                  "    pm.test('Version is available for new inspections', function () {",
+                  "        pm.expect(json.activeForNewInspections).to.eql(true);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List published versions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/versions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "versions"
+              ]
+            },
+            "description": "Versoes publicadas, da mais nova para a mais antiga. O rascunho nao aparece."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Contains the published version', function () {",
+                  "    var ids = pm.response.json().map(function (v) { return v.id; });",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get('versionId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get published version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-template-versions/{{versionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-template-versions",
+                "{{versionId}}"
+              ]
+            },
+            "description": "Estrutura congelada (secoes e itens) da versao publicada. Ids de rascunho devolvem 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Has frozen sections', function () {",
+                  "    pm.expect(pm.response.json().sections).to.be.an('array').that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject unknown version (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-template-versions/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-template-versions",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "Versao inexistente ou rascunho."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Code is TEMPLATE_VERSION_NOT_FOUND', function () {",
+                  "    pm.expect(pm.response.json().code).to.eql('TEMPLATE_VERSION_NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retire version for new inspections",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-template-versions/{{versionId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-template-versions",
+                "{{versionId}}",
+                "availability"
+              ]
+            },
+            "description": "Tira a versao dos novos agendamentos sem afetar inspecoes que ja a usam (RN-022). O conteudo nunca muda.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activeForNewInspections\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Version retired', function () {",
+                  "    pm.expect(pm.response.json().activeForNewInspections).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore version for new inspections",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-template-versions/{{versionId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-template-versions",
+                "{{versionId}}",
+                "availability"
+              ]
+            },
+            "description": "Volta a liberar a versao para novos agendamentos.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activeForNewInspections\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Version available', function () {",
+                  "    pm.expect(pm.response.json().activeForNewInspections).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retire template (INACTIVE)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "status"
+              ]
+            },
+            "description": "Aceita ACTIVE ou INACTIVE, apenas depois da primeira publicacao (422 TEMPLATE_NOT_PUBLISHED).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"INACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Template inactive', function () {",
+                  "    pm.expect(pm.response.json().status).to.eql('INACTIVE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reactivate template (ACTIVE)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "status"
+              ]
+            },
+            "description": "Reativa o modelo para novos agendamentos.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Template active', function () {",
+                  "    pm.expect(pm.response.json().status).to.eql('ACTIVE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject DRAFT status (400)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/inspection-templates/{{templateId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inspection-templates",
+                "{{templateId}}",
+                "status"
+              ]
+            },
+            "description": "DRAFT nao pode ser atribuido manualmente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DRAFT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Code is INVALID_TEMPLATE_STATUS', function () {",
+                  "    pm.expect(pm.response.json().code).to.eql('INVALID_TEMPLATE_STATUS');",
                   "});"
                 ]
               }

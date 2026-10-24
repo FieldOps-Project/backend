@@ -9,6 +9,8 @@ import com.fieldops.inspection.presentation.dto.InspectionTemplateDetailResponse
 import com.fieldops.inspection.presentation.dto.InspectionTemplateResponse;
 import com.fieldops.inspection.presentation.dto.TemplateItemResponse;
 import com.fieldops.inspection.presentation.dto.TemplateSectionResponse;
+import com.fieldops.inspection.presentation.dto.TemplateVersionDetailResponse;
+import com.fieldops.inspection.presentation.dto.TemplateVersionSummaryResponse;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -47,6 +49,32 @@ public class InspectionTemplateMapper {
                 template.getCreatedAt(),
                 template.getUpdatedAt(),
                 template.getVersion()
+        );
+    }
+
+    public TemplateVersionSummaryResponse toVersionSummary(InspectionTemplateVersion version) {
+        return new TemplateVersionSummaryResponse(
+                version.getId(),
+                version.getTemplate().getId(),
+                version.getVersionNumber(),
+                version.getTitleSnapshot(),
+                version.getPublishedBy(),
+                version.getPublishedAt(),
+                version.isActiveForNewInspections()
+        );
+    }
+
+    public TemplateVersionDetailResponse toVersionDetail(InspectionTemplateVersion version) {
+        return new TemplateVersionDetailResponse(
+                version.getId(),
+                version.getTemplate().getId(),
+                version.getVersionNumber(),
+                version.getTitleSnapshot(),
+                version.getDescriptionSnapshot(),
+                version.getPublishedBy(),
+                version.getPublishedAt(),
+                version.isActiveForNewInspections(),
+                toSections(version.getSections())
         );
     }
 

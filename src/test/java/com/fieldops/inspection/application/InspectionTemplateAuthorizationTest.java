@@ -1,5 +1,6 @@
 package com.fieldops.inspection.application;
 
+import com.fieldops.audit.infrastructure.persistence.AuditEvent;
 import com.fieldops.audit.infrastructure.persistence.AuditEventRepository;
 import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
 import com.fieldops.client.infrastructure.persistence.ClientRepository;
@@ -14,6 +15,9 @@ import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateRepo
 import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVersionRepository;
 import com.fieldops.inspection.infrastructure.persistence.TemplateItemRepository;
 import com.fieldops.inspection.infrastructure.persistence.TemplateSectionRepository;
+import com.fieldops.user.domain.model.User;
+import com.fieldops.user.domain.model.UserRole;
+import com.fieldops.user.domain.model.UserStatus;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,10 +26,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,9 +41,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -245,6 +254,107 @@ class InspectionTemplateAuthorizationTest {
         mockMvc.perform(delete("/api/v1/inspection-templates/{id}/sections/{sectionId}", templateId, section.getId())
                         .with(user("supervisor").roles("SUPERVISOR")))
                 .andExpect(status().isNoContent());
+    }
+
+    // ── Publication ─────────────────────────────────────────────────────
+
+    @Test
+    void technicianCannotPublishTemplate() throws Exception {
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/publish", templateId)
+                        .with(user("technician").roles("TECHNICIAN")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+
+        verify(inspectionTemplateVersionRepository, never()).saveAndFlush(any(InspectionTemplateVersion.class));
+    }
+
+    @Test
+    void supervisorPublishesValidDraftAsVersionOne() throws Exception {
+        section.addItem(TemplateItem.create(
+                section, "EXT-01", "Lacre integro?", null, ResponseType.CONFORMITY, true, true, true, null, 1
+        ));
+        when(inspectionTemplateRepository.findByIdForUpdate(templateId)).thenReturn(Optional.of(template));
+        when(inspectionTemplateVersionRepository.findLatestVersionNumber(templateId)).thenReturn(0);
+        when(inspectionTemplateVersionRepository.saveAndFlush(any(InspectionTemplateVersion.class)))
+                .thenAnswer(invocation -> withId(invocation.getArgument(0), UUID.randomUUID()));
+        when(inspectionTemplateRepository.saveAndFlush(any(InspectionTemplate.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/publish", templateId)
+                        .with(authentication(authenticatedAs(UserRole.SUPERVISOR))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.templateId").value(templateId.toString()))
+                .andExpect(jsonPath("$.versionNumber").value(1))
+                .andExpect(jsonPath("$.activeForNewInspections").value(true))
+                .andExpect(jsonPath("$.publishedAt").isNotEmpty());
+
+        verify(auditEventRepository).save(any(AuditEvent.class));
+    }
+
+    @Test
+    void publishingInvalidDraftListsEveryPendingIssue() throws Exception {
+        TemplateSection second = withId(TemplateSection.create(draft, "Escolha", null, 2), UUID.randomUUID());
+        second.addItem(TemplateItem.create(
+                second, null, "Estado", null, ResponseType.SINGLE_CHOICE, true, false, false, null, 1
+        ));
+        draft.addSection(second);
+        when(inspectionTemplateRepository.findByIdForUpdate(templateId)).thenReturn(Optional.of(template));
+
+        mockMvc.perform(post("/api/v1/inspection-templates/{id}/publish", templateId)
+                        .with(user("supervisor").roles("SUPERVISOR")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_PUBLISH_INVALID"))
+                .andExpect(jsonPath("$.fieldErrors", hasSize(2)))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("sections[0].items"))
+                .andExpect(jsonPath("$.fieldErrors[1].field").value("sections[1].items[0].options"));
+
+        verify(inspectionTemplateVersionRepository, never()).saveAndFlush(any(InspectionTemplateVersion.class));
+    }
+
+    @Test
+    void draftIdIsNotExposedAsPublishedVersion() throws Exception {
+        when(inspectionTemplateVersionRepository.findById(draft.getId())).thenReturn(Optional.of(draft));
+
+        mockMvc.perform(get("/api/v1/inspection-template-versions/{versionId}", draft.getId())
+                        .with(user("supervisor").roles("SUPERVISOR")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_VERSION_NOT_FOUND"));
+    }
+
+    @Test
+    void supervisorReadsPublishedVersionStructure() throws Exception {
+        InspectionTemplateVersion published = withId(InspectionTemplateVersion.publishCopyOf(
+                draft, 1, UUID.randomUUID()
+        ), UUID.randomUUID());
+        when(inspectionTemplateVersionRepository.findById(published.getId())).thenReturn(Optional.of(published));
+
+        mockMvc.perform(get("/api/v1/inspection-template-versions/{versionId}", published.getId())
+                        .with(user("supervisor").roles("SUPERVISOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.versionNumber").value(1))
+                .andExpect(jsonPath("$.sections", hasSize(1)))
+                .andExpect(jsonPath("$.sections[0].title").value("Condicoes"));
+    }
+
+    @Test
+    void activatingNeverPublishedTemplateIsRejected() throws Exception {
+        when(inspectionTemplateRepository.findById(templateId)).thenReturn(Optional.of(template));
+
+        mockMvc.perform(patch("/api/v1/inspection-templates/{id}/status", templateId)
+                        .with(user("supervisor").roles("SUPERVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACTIVE\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_NOT_PUBLISHED"));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedAs(UserRole role) {
+        User actor = withId(User.create(
+                "Supervisor", "supervisor@example.com", "$2a$10$secretHash", role, UserStatus.ACTIVE, null
+        ), UUID.randomUUID());
+        return UsernamePasswordAuthenticationToken.authenticated(
+                actor, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))
+        );
     }
 
     private static <T> T withId(T entity, UUID id) {

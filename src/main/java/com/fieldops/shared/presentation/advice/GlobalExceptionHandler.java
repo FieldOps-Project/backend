@@ -133,7 +133,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ApiError> handleBusinessRule(BusinessRuleException ex,
                                                       HttpServletRequest request) {
-        ApiError body = buildError(HttpStatus.UNPROCESSABLE_ENTITY, ex.getCode(), ex.getMessage(), request);
+        List<ApiError.FieldError> fieldErrors = ex.getViolations()
+                .stream()
+                .map(violation -> new ApiError.FieldError(violation.field(), violation.message()))
+                .toList();
+        ApiError body = buildError(HttpStatus.UNPROCESSABLE_ENTITY, ex.getCode(), ex.getMessage(), request, fieldErrors);
         log.warn("Business rule violated: {} — {}", ex.getCode(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(body);
     }

@@ -28,6 +28,10 @@
       "description": "Template builder: draft editing of sections and items."
     },
     {
+      "name": "Inspection Template Versions",
+      "description": "Publication and lifecycle of immutable template versions."
+    },
+    {
       "name": "Clients",
       "description": "Client organization management endpoints."
     },
@@ -2271,6 +2275,87 @@
         }
       }
     },
+    "/api/v1/inspection-templates/{id}/publish": {
+      "post": {
+        "tags": [
+          "Inspection Template Versions"
+        ],
+        "summary": "Publish the draft as a new version",
+        "description": "Validates the draft and freezes a copy of it as the next numbered version. The draft stays editable. The first publication makes the template ACTIVE; a retired (INACTIVE) template keeps its status.",
+        "operationId": "publish",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Version published",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateVersionSummaryResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Template not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Draft has pending issues, listed in fieldErrors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "timestamp": "2026-10-23T14:00:00Z",
+                  "status": 422,
+                  "code": "TEMPLATE_PUBLISH_INVALID",
+                  "message": "The draft has 2 pending issue(s) that block publication",
+                  "path": "/api/v1/inspection-templates/5b8e1f0a-2d3c-4e5f-8a9b-0c1d2e3f4a5b/publish",
+                  "requestId": "c0a8012e-7f3d-4b9a-a2e1-5d6c7b8a9f01",
+                  "fieldErrors": [
+                    {
+                      "field": "sections[1].items",
+                      "message": "Section \"Sinalizacao\" must have at least one item"
+                    },
+                    {
+                      "field": "sections[0].items[2].options",
+                      "message": "SINGLE_CHOICE items require at least two non-blank options"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/equipment": {
       "get": {
         "tags": [
@@ -2760,6 +2845,132 @@
         }
       }
     },
+    "/api/v1/inspection-templates/{id}/status": {
+      "patch": {
+        "tags": [
+          "Inspection Template Versions"
+        ],
+        "summary": "Activate or retire a template",
+        "description": "Only ACTIVE and INACTIVE are accepted, and only after the first publication. Inactive templates cannot be used for new inspections; existing ones are unaffected.",
+        "operationId": "updateTemplateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTemplateStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionTemplateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Status not allowed",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Template not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Template was never published",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inspection-template-versions/{versionId}/availability": {
+      "patch": {
+        "tags": [
+          "Inspection Template Versions"
+        ],
+        "summary": "Retire or restore a version for new inspections",
+        "description": "Changes only whether new inspections can use this version; its content never changes.",
+        "operationId": "updateAvailability",
+        "parameters": [
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTemplateVersionAvailabilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Availability updated",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateVersionSummaryResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Published version not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/equipment/{id}/status": {
       "patch": {
         "tags": [
@@ -2951,6 +3162,95 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageResponseEquipmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inspection-templates/{id}/versions": {
+      "get": {
+        "tags": [
+          "Inspection Template Versions"
+        ],
+        "summary": "List published versions",
+        "description": "Returns the published versions of a template, newest first. The draft is not listed.",
+        "operationId": "findVersions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published versions",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateVersionSummaryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Template not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inspection-template-versions/{versionId}": {
+      "get": {
+        "tags": [
+          "Inspection Template Versions"
+        ],
+        "summary": "Get a published version",
+        "description": "Returns the frozen sections and items of a published version.",
+        "operationId": "findVersion",
+        "parameters": [
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published version",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateVersionDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Published version not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -4496,6 +4796,44 @@
           "title"
         ]
       },
+      "TemplateVersionSummaryResponse": {
+        "type": "object",
+        "description": "Published, immutable template version.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "2e4c6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a"
+          },
+          "templateId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5b8e1f0a-2d3c-4e5f-8a9b-0c1d2e3f4a5b"
+          },
+          "versionNumber": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "title": {
+            "type": "string",
+            "example": "Checklist de extintores"
+          },
+          "publishedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activeForNewInspections": {
+            "type": "boolean",
+            "description": "Whether new inspections can be scheduled with this version.",
+            "example": true
+          }
+        }
+      },
       "CreateEquipmentRequest": {
         "type": "object",
         "description": "Payload used to register new equipment.",
@@ -4708,6 +5046,97 @@
           "status"
         ]
       },
+      "UpdateTemplateStatusRequest": {
+        "type": "object",
+        "description": "Activates or retires a published template.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "INACTIVE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "InspectionTemplateResponse": {
+        "type": "object",
+        "description": "Template metadata used in listings.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5b8e1f0a-2d3c-4e5f-8a9b-0c1d2e3f4a5b"
+          },
+          "title": {
+            "type": "string",
+            "example": "Checklist de extintores"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Inspecao mensal dos extintores de incendio."
+          },
+          "category": {
+            "type": "string",
+            "example": "Seguranca contra incendio"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "DRAFT"
+          },
+          "currentVersion": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Latest published version number; null before the first publication.",
+            "example": 1
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          }
+        }
+      },
+      "UpdateTemplateVersionAvailabilityRequest": {
+        "type": "object",
+        "description": "Retires or restores a version for new scheduling.",
+        "properties": {
+          "activeForNewInspections": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "activeForNewInspections"
+        ]
+      },
       "UpdateEquipmentStatusRequest": {
         "type": "object",
         "description": "Payload used to update an equipment's operational status.",
@@ -4833,67 +5262,6 @@
           }
         }
       },
-      "InspectionTemplateResponse": {
-        "type": "object",
-        "description": "Template metadata used in listings.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "example": "5b8e1f0a-2d3c-4e5f-8a9b-0c1d2e3f4a5b"
-          },
-          "title": {
-            "type": "string",
-            "example": "Checklist de extintores"
-          },
-          "description": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "example": "Inspecao mensal dos extintores de incendio."
-          },
-          "category": {
-            "type": "string",
-            "example": "Seguranca contra incendio"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "DRAFT",
-              "ACTIVE",
-              "INACTIVE"
-            ],
-            "example": "DRAFT"
-          },
-          "currentVersion": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int32",
-            "description": "Latest published version number; null before the first publication.",
-            "example": 1
-          },
-          "createdBy": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "version": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          }
-        }
-      },
       "PageResponseInspectionTemplateResponse": {
         "type": "object",
         "properties": {
@@ -4924,6 +5292,56 @@
           },
           "last": {
             "type": "boolean"
+          }
+        }
+      },
+      "TemplateVersionDetailResponse": {
+        "type": "object",
+        "description": "Published version with its frozen sections and items.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "2e4c6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a"
+          },
+          "templateId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5b8e1f0a-2d3c-4e5f-8a9b-0c1d2e3f4a5b"
+          },
+          "versionNumber": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "title": {
+            "type": "string",
+            "example": "Checklist de extintores"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Inspecao mensal dos extintores de incendio."
+          },
+          "publishedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activeForNewInspections": {
+            "type": "boolean",
+            "example": true
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateSectionResponse"
+            }
           }
         }
       },
