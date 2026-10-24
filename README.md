@@ -12,6 +12,30 @@ O modulo `user` implementa a base de identidade da API:
 - `DELETE /users/{id}` executa exclusao logica, marcando `status = INACTIVE`.
 
 A tabela `users` e criada por Flyway em `V2__create_users.sql`, com indice unico em `lower(email)` para impedir e-mails duplicados variando maiusculas/minusculas.
+
+## Testes
+
+`./mvnw verify` roda os testes unitarios e os de integracao. Os de integracao (por exemplo `InspectionPersistenceTest`) usam Testcontainers: sobem um PostgreSQL 16 descartavel, aplicam todas as migracoes Flyway e validam o mapeamento JPA contra o esquema real, por isso **exigem Docker em execucao**. A CI do GitHub ja tem Docker.
+
+Para rodar o Maven dentro de um container no Windows, exponha o Docker do host:
+
+```text
+docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \
+  -v "${PWD}:/app" -v fieldops-m2:/root/.m2 -w /app maven:3.9-eclipse-temurin-21 mvn -B test
+```
+
+## Inspecoes
+
+`V11__create_inspections.sql` cria `inspections` e `inspection_item_snapshots` (documento 10, 10.8). O banco garante, alem da aplicacao:
+
+- local pertencente ao cliente e equipamento pertencente ao local (FKs compostas);
+- versao de modelo publicada (trigger `trg_inspection_published_version`);
+- os oito estados de negocio e as quatro prioridades (CHECK);
+- cancelamento com data, autor e motivo; horario do servidor somente com o horario do dispositivo correspondente;
+- snapshot imutavel (trigger `trg_snapshot_immutable` bloqueia `UPDATE`).
+
+Os horarios vem em pares: `*_at_device` e o relogio do aparelho no momento da acao, `*_at_server` e quando a API recebeu (RN-034, RN-074). O snapshot copia texto e regras do item; `source_template_item_id` e apenas rastro historico.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 
