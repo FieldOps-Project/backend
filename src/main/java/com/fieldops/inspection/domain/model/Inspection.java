@@ -1,7 +1,9 @@
 package com.fieldops.inspection.domain.model;
 
+import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
@@ -93,6 +95,25 @@ public class Inspection {
     @Column(name = "submitted_at_server")
     private Instant submittedAtServer;
 
+    /** Where the technician's device was when the inspection started (RN-061, RN-062). */
+    @Embedded
+    @AttributeOverride(name = "latitude", column = @Column(name = "start_latitude", precision = 9, scale = 6))
+    @AttributeOverride(name = "longitude", column = @Column(name = "start_longitude", precision = 9, scale = 6))
+    @AttributeOverride(name = "accuracyMeters",
+            column = @Column(name = "start_accuracy_meters", precision = 10, scale = 2))
+    @AttributeOverride(name = "capturedAtDevice", column = @Column(name = "start_position_captured_at"))
+    private FieldPosition startPosition;
+
+    /** Where the technician's device was when the inspection was completed (RN-061, RN-062). */
+    @Embedded
+    @AttributeOverride(name = "latitude", column = @Column(name = "completion_latitude", precision = 9, scale = 6))
+    @AttributeOverride(name = "longitude",
+            column = @Column(name = "completion_longitude", precision = 9, scale = 6))
+    @AttributeOverride(name = "accuracyMeters",
+            column = @Column(name = "completion_accuracy_meters", precision = 10, scale = 2))
+    @AttributeOverride(name = "capturedAtDevice", column = @Column(name = "completion_position_captured_at"))
+    private FieldPosition completionPosition;
+
     @Column(name = "approved_at")
     private Instant approvedAt;
 
@@ -170,6 +191,29 @@ public class Inspection {
         return inspection;
     }
 
+    // ── Field position (app#19) ──────────────────────────────
+
+    /**
+     * Records the position the device read at the start. The start transition
+     * (backend#20) records {@code startedAtDevice} first and then hands over
+     * the position it received, or {@code null} when the device could not
+     * read one — the technician is never blocked by a missing position.
+     */
+    public void recordStartPosition(FieldPosition position) {
+        if (startedAtDevice == null) {
+            throw new IllegalStateException("the start position belongs to a started inspection");
+        }
+        this.startPosition = position;
+    }
+
+    /** Same as {@link #recordStartPosition}, for the completion (RN-061). */
+    public void recordCompletionPosition(FieldPosition position) {
+        if (completedAtDevice == null) {
+            throw new IllegalStateException("the completion position belongs to a completed inspection");
+        }
+        this.completionPosition = position;
+    }
+
     // ── Getters ──────────────────────────────────────────────
 
     public UUID getId() {
@@ -238,6 +282,14 @@ public class Inspection {
 
     public Instant getSubmittedAtServer() {
         return submittedAtServer;
+    }
+
+    public FieldPosition getStartPosition() {
+        return startPosition;
+    }
+
+    public FieldPosition getCompletionPosition() {
+        return completionPosition;
     }
 
     public Instant getApprovedAt() {
