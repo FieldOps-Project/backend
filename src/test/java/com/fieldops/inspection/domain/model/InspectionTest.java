@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -100,6 +101,40 @@ class InspectionTest {
                 .hasMessageContaining("technicianId");
         assertThatThrownBy(() -> Inspection.create(published, id, id, null, id, null, id, "T", null, null, null))
                 .hasMessageContaining("scheduledFor");
+    }
+
+    @Test
+    void recordsTheStartAndCompletionPositionsSeparately() {
+        Inspection inspection = Inspection.create(
+                published, UUID.randomUUID(), UUID.randomUUID(), null, UUID.randomUUID(), null, UUID.randomUUID(),
+                "Extintores", null, null, scheduledFor
+        );
+        ReflectionTestUtils.setField(inspection, "startedAtDevice", Instant.parse("2026-11-03T13:02:00Z"));
+        ReflectionTestUtils.setField(inspection, "completedAtDevice", Instant.parse("2026-11-03T13:48:00Z"));
+        FieldPosition atGate = FieldPosition.of(
+                new BigDecimal("-23.5012"), new BigDecimal("-47.4531"), new BigDecimal("18"),
+                Instant.parse("2026-11-03T13:02:03Z")
+        );
+
+        inspection.recordStartPosition(atGate);
+        inspection.recordCompletionPosition(null);
+
+        assertThat(inspection.getStartPosition()).isEqualTo(atGate);
+        assertThat(inspection.getCompletionPosition()).isNull();
+    }
+
+    @Test
+    void aPositionBelongsToATransitionThatHappened() {
+        Inspection inspection = Inspection.create(
+                published, UUID.randomUUID(), UUID.randomUUID(), null, UUID.randomUUID(), null, UUID.randomUUID(),
+                "Extintores", null, null, scheduledFor
+        );
+        FieldPosition position = FieldPosition.of(BigDecimal.ONE, BigDecimal.ONE, null, scheduledFor);
+
+        assertThatThrownBy(() -> inspection.recordStartPosition(position))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> inspection.recordCompletionPosition(position))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     private static TemplateItem item(

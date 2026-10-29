@@ -1,5 +1,6 @@
 package com.fieldops.inspection.infrastructure.persistence;
 
+import com.fieldops.inspection.domain.model.FieldPosition;
 import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.domain.model.InspectionItemSnapshot;
 import com.fieldops.inspection.domain.model.InspectionPriority;
@@ -27,6 +28,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -299,6 +301,61 @@ class InspectionPersistenceTest {
         assertThat(columns).contains(
                 "started_at_device", "started_at_server", "completed_at_device", "submitted_at_server"
         );
+    }
+
+    // ── Field position (app#19) ─────────────────────────────────────────
+
+    @Test
+    void persistsAndReadsBackTheStartAndCompletionPositions() {
+        Inspection inspection = newInspection(null);
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.SUBMITTED);
+        ReflectionTestUtils.setField(inspection, "startedAtDevice", Instant.parse("2026-10-23T13:02:00Z"));
+        ReflectionTestUtils.setField(inspection, "completedAtDevice", Instant.parse("2026-10-23T13:48:00Z"));
+        inspection.recordStartPosition(FieldPosition.of(
+                new BigDecimal("-23.501212"), new BigDecimal("-47.453100"), new BigDecimal("18.40"),
+                Instant.parse("2026-10-23T13:02:03Z")
+        ));
+        inspection.recordCompletionPosition(null);
+        UUID id = inspectionRepository.saveAndFlush(inspection).getId();
+        entityManager.clear();
+
+        Inspection loaded = inspectionRepository.findById(id).orElseThrow();
+        assertThat(loaded.getStartPosition().getLatitude()).isEqualByComparingTo("-23.501212");
+        assertThat(loaded.getStartPosition().getLongitude()).isEqualByComparingTo("-47.4531");
+        assertThat(loaded.getStartPosition().getAccuracyMeters()).isEqualByComparingTo("18.4");
+        assertThat(loaded.getStartPosition().getCapturedAtDevice()).isEqualTo(Instant.parse("2026-10-23T13:02:03Z"));
+        assertThat(loaded.getCompletionPosition()).isNull();
+    }
+
+    @Test
+    void halfAPositionIsRejected() {
+        Timestamp started = Timestamp.from(Instant.parse("2026-10-23T13:02:00Z"));
+
+        assertRejected(Map.of(
+                "status", "IN_PROGRESS", "started_at_device", started,
+                "start_latitude", new BigDecimal("-23.5"), "start_position_captured_at", started
+        ));
+    }
+
+    @Test
+    void positionOutsideTheValidRangeIsRejected() {
+        Timestamp started = Timestamp.from(Instant.parse("2026-10-23T13:02:00Z"));
+
+        assertRejected(Map.of(
+                "status", "IN_PROGRESS", "started_at_device", started,
+                "start_latitude", new BigDecimal("91"), "start_longitude", new BigDecimal("-47.4"),
+                "start_position_captured_at", started
+        ));
+    }
+
+    @Test
+    void positionWithoutItsTransitionIsRejected() {
+        Timestamp captured = Timestamp.from(Instant.parse("2026-10-23T13:02:00Z"));
+
+        assertRejected(Map.of(
+                "completion_latitude", new BigDecimal("-23.5"), "completion_longitude", new BigDecimal("-47.4"),
+                "completion_position_captured_at", captured
+        ));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────
