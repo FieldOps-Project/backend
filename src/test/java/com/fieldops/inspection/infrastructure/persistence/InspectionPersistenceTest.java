@@ -197,7 +197,7 @@ class InspectionPersistenceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"client_id", "site_id", "technician_id", "template_version_id", "scheduled_for"})
+    @ValueSource(strings = {"client_id", "site_id", "template_version_id", "scheduled_for"})
     void requiredColumnsCannotBeNull(String column) {
         Map<String, Object> overrides = new LinkedHashMap<>();
         overrides.put(column, null);
@@ -211,6 +211,25 @@ class InspectionPersistenceTest {
         insertInspection(Map.of("equipment_id", equipmentId));
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM inspections", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void draftInspectionCanBeCreatedWithoutTechnician() {
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        overrides.put("technician_id", null);
+        overrides.put("status", "DRAFT");
+        UUID id = insertInspection(overrides);
+
+        assertThat(jdbc.queryForObject(
+                "SELECT technician_id FROM inspections WHERE id = ?", UUID.class, id
+        )).isNull();
+    }
+
+    @Test
+    void assignedInspectionStillRequiresTechnician() {
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        overrides.put("technician_id", null);
+        assertRejected(overrides);
     }
 
     @Test

@@ -80,8 +80,8 @@
                 "$ref": "#/components/schemas/LoginRequest"
               },
               "example": {
-                "password": "senha-informada-pelo-usuario",
-                "email": "tecnico@fieldops.local"
+                "email": "tecnico@fieldops.local",
+                "password": "senha-informada-pelo-usuario"
               }
             }
           },
@@ -335,6 +335,69 @@
             "bearerAuth": []
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Schedule an inspection",
+        "description": "Validates all links, creates the inspection and freezes the published checklist in one transaction.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Inspection scheduled",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponse"
+                },
+                "example": {
+                  "id": "3d8dc050-54f4-4d3b-9e5d-5fdb29ae3ed5",
+                  "status": "ASSIGNED",
+                  "scheduledFor": "2026-11-10T13:00:00Z",
+                  "itemSnapshots": [
+                    {
+                      "sectionTitle": "Condicoes",
+                      "itemTitle": "Lacre intacto?",
+                      "sectionOrder": 1,
+                      "itemOrder": 1
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Link or template validation failed",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/mobile/inspections": {
@@ -735,6 +798,109 @@
         }
       }
     },
+    "/api/v1/inspections/{id}": {
+      "get": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Get a scheduled inspection",
+        "operationId": "findById_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inspection returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Update inspection planning data",
+        "description": "Updates links and planning fields before execution without changing the frozen checklist snapshot.",
+        "operationId": "update_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Inspection updated",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Inspection is not editable or link validation failed",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/inspection-templates/{id}": {
       "get": {
         "tags": [
@@ -742,7 +908,7 @@
         ],
         "summary": "Get a template with its draft",
         "description": "Returns template metadata and the ordered sections and items of the working draft.",
-        "operationId": "findById_3",
+        "operationId": "findById_4",
         "parameters": [
           {
             "name": "id",
@@ -816,7 +982,7 @@
         ],
         "summary": "Update template metadata",
         "description": "Updates title, description and category. Structure changes use the section and item endpoints.",
-        "operationId": "update_3",
+        "operationId": "update_4",
         "parameters": [
           {
             "name": "id",
@@ -1242,7 +1408,7 @@
         ],
         "summary": "Get equipment by ID",
         "description": "Returns single equipment details.",
-        "operationId": "findById_4",
+        "operationId": "findById_5",
         "parameters": [
           {
             "name": "id",
@@ -1273,7 +1439,7 @@
         ],
         "summary": "Update equipment",
         "description": "Updates equipment attributes without changing site association.",
-        "operationId": "update_4",
+        "operationId": "update_5",
         "parameters": [
           {
             "name": "id",
@@ -1336,7 +1502,7 @@
         ],
         "summary": "Get a client by id",
         "description": "Returns active or inactive client data.",
-        "operationId": "findById_5",
+        "operationId": "findById_6",
         "parameters": [
           {
             "name": "id",
@@ -1367,7 +1533,7 @@
         ],
         "summary": "Update a client",
         "description": "Updates profile data. Status is changed separately by the status endpoint.",
-        "operationId": "update_5",
+        "operationId": "update_6",
         "parameters": [
           {
             "name": "id",
@@ -1605,7 +1771,7 @@
         ],
         "summary": "Create a user",
         "description": "Stores the password using BCrypt and never returns the password hash.",
-        "operationId": "create",
+        "operationId": "create_1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1756,7 +1922,7 @@
         ],
         "summary": "Create a user",
         "description": "Stores the password using BCrypt and never returns the password hash.",
-        "operationId": "create_1",
+        "operationId": "create_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1909,7 +2075,7 @@
         ],
         "summary": "Create an inspection site",
         "description": "Creates a site linked to an existing client. The client link cannot be changed later.",
-        "operationId": "create_2",
+        "operationId": "create_3",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2067,7 +2233,7 @@
         ],
         "summary": "Create a template",
         "description": "Creates a template in DRAFT status with an empty working draft.",
-        "operationId": "create_3",
+        "operationId": "create_4",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2460,7 +2626,7 @@
         ],
         "summary": "Create equipment",
         "description": "Creates new equipment associated with an active inspection site and a unique QR Code.",
-        "operationId": "create_4",
+        "operationId": "create_5",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2600,7 +2766,7 @@
         ],
         "summary": "Create a client",
         "description": "Creates an active client by default. The document is stored normalized without punctuation.",
-        "operationId": "create_5",
+        "operationId": "create_6",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3729,8 +3895,8 @@
               "null"
             ],
             "example": -23.5015,
-            "maximum": 90,
-            "minimum": -90
+            "maximum": 90.0,
+            "minimum": -90.0
           },
           "longitude": {
             "type": [
@@ -3738,8 +3904,8 @@
               "null"
             ],
             "example": -47.4526,
-            "maximum": 180,
-            "minimum": -180
+            "maximum": 180.0,
+            "minimum": -180.0
           },
           "contactName": {
             "type": [
@@ -3867,6 +4033,207 @@
             "example": 0
           }
         }
+      },
+      "InspectionItemSnapshotResponse": {
+        "type": "object",
+        "description": "Frozen checklist item captured at inspection scheduling time.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceTemplateItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sectionTitle": {
+            "type": "string"
+          },
+          "sectionDescription": {
+            "type": "string"
+          },
+          "sectionOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemCode": {
+            "type": "string"
+          },
+          "itemTitle": {
+            "type": "string"
+          },
+          "itemDescription": {
+            "type": "string"
+          },
+          "responseType": {
+            "type": "string",
+            "enum": [
+              "TEXT_SHORT",
+              "TEXT_LONG",
+              "NUMBER",
+              "BOOLEAN",
+              "CONFORMITY",
+              "SINGLE_CHOICE",
+              "DATE"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "rulesJson": {
+            "type": "string"
+          },
+          "optionsJson": {
+            "type": "string"
+          },
+          "itemOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InspectionResponse": {
+        "type": "object",
+        "description": "Scheduled inspection with its immutable checklist snapshot.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "templateVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "equipmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "technicianId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supervisorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
+          },
+          "scheduledFor": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "itemSnapshots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionItemSnapshotResponse"
+            }
+          }
+        }
+      },
+      "UpdateInspectionRequest": {
+        "type": "object",
+        "description": "Planning data editable before an inspection starts. The checklist snapshot is never regenerated.",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "equipmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "technicianId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supervisorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 0
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "scheduledFor": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "clientId",
+          "scheduledFor",
+          "siteId",
+          "title"
+        ]
       },
       "UpdateInspectionTemplateRequest": {
         "type": "object",
@@ -4591,8 +4958,8 @@
               "null"
             ],
             "example": -23.5015,
-            "maximum": 90,
-            "minimum": -90
+            "maximum": 90.0,
+            "minimum": -90.0
           },
           "longitude": {
             "type": [
@@ -4600,8 +4967,8 @@
               "null"
             ],
             "example": -47.4526,
-            "maximum": 180,
-            "minimum": -180
+            "maximum": 180.0,
+            "minimum": -180.0
           },
           "contactName": {
             "type": [
@@ -4636,6 +5003,74 @@
         "required": [
           "clientId",
           "name"
+        ]
+      },
+      "CreateInspectionRequest": {
+        "type": "object",
+        "description": "Data used to schedule an inspection from an active published template version.",
+        "properties": {
+          "templateVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "equipmentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Required unless the template category represents a site or environment inspection."
+          },
+          "technicianId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "When omitted, the inspection remains in DRAFT until a technician is assigned."
+          },
+          "supervisorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 0
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "scheduledFor": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "clientId",
+          "scheduledFor",
+          "siteId",
+          "templateVersionId",
+          "title"
         ]
       },
       "CreateInspectionTemplateRequest": {
