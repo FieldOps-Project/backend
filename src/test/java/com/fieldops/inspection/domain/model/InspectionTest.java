@@ -90,15 +90,18 @@ class InspectionTest {
     }
 
     @Test
-    void createRequiresClientSiteTechnicianAndSchedule() {
+    void createRequiresClientSiteAndSchedule() {
         UUID id = UUID.randomUUID();
 
         assertThatThrownBy(() -> Inspection.create(published, null, id, null, id, null, id, "T", null, null, scheduledFor))
                 .hasMessageContaining("clientId");
         assertThatThrownBy(() -> Inspection.create(published, id, null, null, id, null, id, "T", null, null, scheduledFor))
                 .hasMessageContaining("siteId");
-        assertThatThrownBy(() -> Inspection.create(published, id, id, null, null, null, id, "T", null, null, scheduledFor))
-                .hasMessageContaining("technicianId");
+        Inspection draft = Inspection.create(
+                published, id, id, null, null, null, id, "T", null, null, scheduledFor
+        );
+        assertThat(draft.getTechnicianId()).isNull();
+        assertThat(draft.getStatus()).isEqualTo(InspectionStatus.DRAFT);
         assertThatThrownBy(() -> Inspection.create(published, id, id, null, id, null, id, "T", null, null, null))
                 .hasMessageContaining("scheduledFor");
     }

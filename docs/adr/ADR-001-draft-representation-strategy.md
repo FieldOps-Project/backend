@@ -83,3 +83,12 @@ instead of from an empty draft.
 - Issue #12 specification: "Modelar o rascunho como uma versão de trabalho
   (version_number nulo ou zero, published_at nulo) mantém uma única estrutura
   em vez de duas paralelas — registrar a escolha adotada em ADR."
+
+## Scheduling note
+
+The inspection scheduling API uses the existing template `category` as the
+MVP inspection type. Categories `local`, `ambiente`, `site`, `location`, and
+`environment` represent site/environment inspections and may omit
+`equipment_id`; every other category requires an active equipment record.
+The checklist snapshot still always comes from the published version, so this
+classification does not change the immutable template structure.
