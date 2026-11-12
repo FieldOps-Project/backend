@@ -1980,6 +1980,170 @@
         }
       }
     },
+    "/api/v1/inspections/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Cancel an inspection with a business reason",
+        "operationId": "cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Inspection canceled",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionTransitionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cancellation reason is missing",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invalid inspection transition",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inspections/{id}/assign": {
+      "post": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Assign an inspection to an active technician",
+        "operationId": "assign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Inspection assigned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionTransitionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection or technician not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invalid inspection transition",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Technician is not eligible",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/inspection-templates": {
       "get": {
         "tags": [
@@ -3729,8 +3893,8 @@
               "null"
             ],
             "example": -23.5015,
-            "maximum": 90,
-            "minimum": -90
+            "maximum": 90.0,
+            "minimum": -90.0
           },
           "longitude": {
             "type": [
@@ -3738,8 +3902,8 @@
               "null"
             ],
             "example": -47.4526,
-            "maximum": 180,
-            "minimum": -180
+            "maximum": 180.0,
+            "minimum": -180.0
           },
           "contactName": {
             "type": [
@@ -4591,8 +4755,8 @@
               "null"
             ],
             "example": -23.5015,
-            "maximum": 90,
-            "minimum": -90
+            "maximum": 90.0,
+            "minimum": -90.0
           },
           "longitude": {
             "type": [
@@ -4600,8 +4764,8 @@
               "null"
             ],
             "example": -47.4526,
-            "maximum": 180,
-            "minimum": -180
+            "maximum": 180.0,
+            "minimum": -180.0
           },
           "contactName": {
             "type": [
@@ -4636,6 +4800,84 @@
         "required": [
           "clientId",
           "name"
+        ]
+      },
+      "InspectionTransitionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousStatus": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
+          },
+          "technicianId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canceledBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canceledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "canceledReason": {
+            "type": "string"
+          }
+        }
+      },
+      "CancelInspectionRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Business reason for cancellation",
+            "example": "Client site unavailable",
+            "maxLength": 1000,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "AssignInspectionRequest": {
+        "type": "object",
+        "properties": {
+          "technicianId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Active user with the TECHNICIAN role"
+          }
+        },
+        "required": [
+          "technicianId"
         ]
       },
       "CreateInspectionTemplateRequest": {
