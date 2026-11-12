@@ -324,6 +324,20 @@ public class Inspection {
         return List.copyOf(itemSnapshots);
     }
 
+    /** Assigns the responsible technician after the transition policy is validated. */
+    public void assign(UUID technicianId) {
+        this.technicianId = Objects.requireNonNull(technicianId, "technicianId must not be null");
+        this.status = InspectionStatus.ASSIGNED;
+    }
+
+    /** Stores the cancellation facts required by RN-029. */
+    public void cancel(UUID canceledBy, String reason, Instant canceledAt) {
+        this.canceledBy = Objects.requireNonNull(canceledBy, "canceledBy must not be null");
+        this.canceledReason = requireText(reason, "reason");
+        this.canceledAt = Objects.requireNonNull(canceledAt, "canceledAt must not be null");
+        this.status = InspectionStatus.CANCELED;
+    }
+
     // ── Helpers ──────────────────────────────────────────────
 
     private static String requireText(String value, String fieldName) {
