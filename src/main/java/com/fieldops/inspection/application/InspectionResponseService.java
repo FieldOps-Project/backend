@@ -9,6 +9,7 @@ import com.fieldops.inspection.domain.model.InspectionResponse;
 import com.fieldops.inspection.domain.model.InspectionResponseValue;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionEvidenceRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionResponseRepository;
 import com.fieldops.inspection.presentation.dto.InspectionResponseBatchItemResponse;
 import com.fieldops.inspection.presentation.dto.InspectionResponseBatchItemResponse.BatchItemStatus;
@@ -24,6 +25,8 @@ import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.domain.exception.Violation;
 import com.fieldops.shared.presentation.dto.ApiError;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -44,6 +47,25 @@ public class InspectionResponseService implements InspectionResponseReader {
     private final InspectionResponseValidator validator;
     private final Clock clock;
     private final ObjectMapper objectMapper;
+    private final ObjectProvider<InspectionEvidenceRepository> evidenceRepositoryProvider;
+
+    @Autowired
+    public InspectionResponseService(
+            InspectionRepository inspectionRepository,
+            InspectionResponseRepository responseRepository,
+            AuthenticatedUserResolver authenticatedUserResolver,
+            InspectionResponseValidator validator,
+            ObjectMapper objectMapper,
+            ObjectProvider<InspectionEvidenceRepository> evidenceRepositoryProvider
+    ) {
+        this.inspectionRepository = inspectionRepository;
+        this.responseRepository = responseRepository;
+        this.authenticatedUserResolver = authenticatedUserResolver;
+        this.validator = validator;
+        this.objectMapper = objectMapper;
+        this.evidenceRepositoryProvider = evidenceRepositoryProvider;
+        this.clock = Clock.systemUTC();
+    }
 
     public InspectionResponseService(
             InspectionRepository inspectionRepository,
@@ -57,6 +79,7 @@ public class InspectionResponseService implements InspectionResponseReader {
         this.authenticatedUserResolver = authenticatedUserResolver;
         this.validator = validator;
         this.objectMapper = objectMapper;
+        this.evidenceRepositoryProvider = null;
         this.clock = Clock.systemUTC();
     }
 
@@ -101,9 +124,17 @@ public class InspectionResponseService implements InspectionResponseReader {
                         true,
                         response.getConformity() == null ? null : response.getConformity().name(),
                         response.getObservation(),
-                        false
+                        hasEvidence(response.getId())
                 ))
                 .toList();
+    }
+
+    private boolean hasEvidence(UUID responseId) {
+        if (evidenceRepositoryProvider == null) {
+            return false;
+        }
+        InspectionEvidenceRepository repository = evidenceRepositoryProvider.getIfAvailable();
+        return repository != null && repository.existsByResponseIdAndDeletedAtIsNull(responseId);
     }
 
     private InspectionResponseBatchItemResponse applyBatchItem(

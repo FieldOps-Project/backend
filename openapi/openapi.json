@@ -44,12 +44,12 @@
       "description": "Equipment management and QR Code lookup endpoints."
     },
     {
-      "name": "Users",
-      "description": "User management endpoints."
-    },
-    {
       "name": "Inspections",
       "description": "Inspection list contract endpoints for dashboard and mobile."
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints."
     },
     {
       "name": "Authentication",
@@ -2510,6 +2510,105 @@
         ]
       }
     },
+    "/api/v1/inspections/{inspectionId}/evidence": {
+      "get": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "List inspection evidence",
+        "description": "Lists active evidence visible to the technician or supervisor in scope.",
+        "operationId": "listEvidence",
+        "parameters": [
+          {
+            "name": "inspectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvidenceResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Upload private inspection evidence",
+        "description": "Stores image metadata in the API and the bytes in private storage.",
+        "operationId": "uploadEvidence",
+        "parameters": [
+          {
+            "name": "inspectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metadata": {
+                    "$ref": "#/components/schemas/EvidenceMetadataRequest"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file",
+                  "metadata"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/inspections/{id}/submit": {
       "post": {
         "tags": [
@@ -4302,6 +4401,74 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/evidence/{id}": {
+      "get": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Download private evidence",
+        "description": "Streams evidence only after server-side scope validation.",
+        "operationId": "downloadEvidence",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Delete evidence",
+        "description": "Soft-deletes evidence, removes the private object and records an audit event.",
+        "operationId": "deleteEvidence",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/equipment/by-qr/{qrCode}": {
@@ -6125,6 +6292,117 @@
         "required": [
           "responses"
         ]
+      },
+      "EvidenceMetadataRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nonConformityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "capturedAtDevice": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 0
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "accuracyMeters": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "capturedAtDevice",
+          "id",
+          "type"
+        ]
+      },
+      "EvidenceResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inspectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nonConformityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "accuracyMeters": {
+            "type": "number"
+          },
+          "capturedAtDevice": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "serverReceivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "InspectionExecutionResponse": {
         "type": "object",

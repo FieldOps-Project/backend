@@ -35,6 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -240,6 +241,28 @@ class UserAuthorizationTest {
                         .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responses\":[" + payload + "]}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void administratorGetsForbiddenFromEvidenceReadAndDeleteEndpoints() throws Exception {
+        UUID inspectionId = UUID.randomUUID();
+        UUID evidenceId = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/v1/inspections/{id}/evidence", inspectionId)
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+
+        mockMvc.perform(get("/api/v1/evidence/{id}", evidenceId)
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+
+        mockMvc.perform(delete("/api/v1/evidence/{id}", evidenceId)
+                        .with(user("admin").roles("ADMIN")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
     }

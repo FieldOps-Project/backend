@@ -86,6 +86,19 @@ POST /api/v1/inspections/{inspectionId}/responses:batch
 
 Cada resposta usa somente o campo tipado correspondente ao `responseType` congelado no snapshot. O servidor grava os horarios do dispositivo e do recebimento, atribui `answeredBy` ao tecnico autenticado e rejeita itens de outra inspecao. O `PUT` e idempotente pelo id gerado no dispositivo; o batch devolve `APPLIED` ou `REJECTED` por item sem abortar os demais. Respostas ficam bloqueadas depois de `SUBMITTED`, `UNDER_REVIEW` ou `APPROVED`.
 
+### Evidencias
+
+As fotografias sao enviadas como multipart e ficam em storage privado; o PostgreSQL guarda apenas os metadados e a chave gerada pelo servidor:
+
+```text
+POST   /api/v1/inspections/{inspectionId}/evidence
+GET    /api/v1/inspections/{inspectionId}/evidence
+GET    /api/v1/evidence/{id}
+DELETE /api/v1/evidence/{id}
+```
+
+O MVP aceita JPEG e PNG, valida a assinatura dos bytes, limita o tamanho por `APP_EVIDENCE_MAX_SIZE_BYTES` e nunca usa o nome original para criar a chave. O download exige autenticacao e escopo de tecnico ou supervisor. O upload e idempotente por `id`/`evidenceId`; a exclusao e logica, remove o objeto privado, preserva os metadados e gera `EVIDENCE_REMOVED`. Evidencias de inspecoes `APPROVED` sao somente leitura.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 
@@ -112,6 +125,7 @@ A API valida autorizacao no servidor com `@PreAuthorize` nos endpoints e nos ser
 | Agendar, atribuir e cancelar inspecao | sim | sim | nao |
 | Executar inspecao | nao | nao | somente as proprias |
 | Revisar, aprovar e reprovar | nao | sim | nao |
+| Evidencias | nao | leitura no escopo | upload, leitura e exclusao antes da aprovacao |
 | Auditoria | leitura | leitura no escopo | nenhum |
 
 Os endpoints existentes de usuarios aplicam essa matriz: ADMIN pode gerenciar, ADMIN e SUPERVISOR podem consultar, e os demais perfis recebem `403 AUTH_FORBIDDEN`. Recursos pertencentes a outro tecnico devem filtrar pelo usuario autenticado e devolver `404`, sem aceitar `technicianId` ou outro identificador de escopo no payload.

@@ -1,0 +1,221 @@
+package com.fieldops.inspection.application;
+
+import com.fieldops.audit.application.AuditEventService;
+import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
+import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
+import com.fieldops.inspection.domain.model.FieldPosition;
+import com.fieldops.inspection.domain.model.Inspection;
+import com.fieldops.inspection.domain.model.InspectionEvidence;
+import com.fieldops.inspection.domain.model.InspectionStatus;
+import com.fieldops.inspection.infrastructure.persistence.InspectionEvidenceRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionResponseRepository;
+import com.fieldops.inspection.infrastructure.storage.EvidenceStorage;
+import com.fieldops.inspection.presentation.dto.EvidenceMetadataRequest;
+import com.fieldops.shared.domain.exception.BusinessRuleException;
+import com.fieldops.shared.domain.exception.ConflictException;
+import com.fieldops.shared.domain.exception.ResourceNotFoundException;
+import com.fieldops.shared.domain.exception.Violation;
+import com.fieldops.user.domain.model.User;
+import com.fieldops.user.domain.model.UserRole;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@ConditionalOnBean(InspectionEvidenceRepository.class)
+public class InspectionEvidenceService {
+
+    private static final String EVIDENCE_ENTITY = "INSPECTION_EVIDENCE";
+
+    private final InspectionRepository inspectionRepository;
+    private final InspectionEvidenceRepository evidenceRepository;
+    private final InspectionResponseRepository responseRepository;
+    private final EvidenceStorage evidenceStorage;
+    private final EvidenceFileValidator fileValidator;
+    private final AuthenticatedUserResolver authenticatedUserResolver;
+    private final AuditEventService auditEventService;
+    private final Clock clock;
+    private final long maxSizeBytes;
+
+    public InspectionEvidenceService(
+            InspectionRepository inspectionRepository,
+            InspectionEvidenceRepository evidenceRepository,
+            InspectionResponseRepository responseRepository,
+            EvidenceStorage evidenceStorage,
+            EvidenceFileValidator fileValidator,
+            AuthenticatedUserResolver authenticatedUserResolver,
+            AuditEventService auditEventService,
+            @Value("${app.evidence.max-size-bytes:10485760}") long maxSizeBytes
+    ) {
+        this.inspectionRepository = inspectionRepository;
+        this.evidenceRepository = evidenceRepository;
+        this.responseRepository = responseRepository;
+        this.evidenceStorage = evidenceStorage;
+        this.fileValidator = fileValidator;
+        this.authenticatedUserResolver = authenticatedUserResolver;
+        this.auditEventService = auditEventService;
+        this.clock = Clock.systemUTC();
+        this.maxSizeBytes = maxSizeBytes;
+    }
+
+    @Transactional
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public InspectionEvidence upload(UUID inspectionId, EvidenceMetadataRequest metadata, MultipartFile file) {
+        loadForTechnician(inspectionId);
+        InspectionEvidence existing = evidenceRepository.findById(metadata.id()).orElse(null);
+        if (existing != null) {
+            if (!existing.getInspectionId().equals(inspectionId)) {
+                throw new ConflictException("EVIDENCE_ID_REUSED", "The evidence id is already linked to another inspection");
+            }
+            return existing;
+        }
+
+        validateResponseLink(inspectionId, metadata.responseId());
+        validateCoordinates(metadata);
+        EvidenceFileValidator.ValidatedEvidenceFile validated = fileValidator.validate(file, maxSizeBytes);
+        UUID actor = currentUserId();
+        Instant now = Instant.now(clock);
+        String storageKey = "inspections/" + inspectionId + "/" + metadata.id() + "." + validated.extension();
+        evidenceStorage.store(storageKey, validated.content());
+        InspectionEvidence evidence = InspectionEvidence.create(
+                metadata.id(), inspectionId, metadata.responseId(), metadata.nonConformityId(), metadata.type(), storageKey,
+                validated.mimeType(), validated.content().length, checksum(validated.content()), metadata.description(),
+                metadata.latitude(), metadata.longitude(), metadata.accuracyMeters(), metadata.capturedAtDevice(),
+                now, now, actor
+        );
+        InspectionEvidence saved;
+        try {
+            saved = evidenceRepository.saveAndFlush(evidence);
+        } catch (RuntimeException exception) {
+            evidenceStorage.delete(storageKey);
+            throw exception;
+        }
+        auditEventService.recordEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), null, auditState(saved));
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EVIDENCE_READ)
+    public List<InspectionEvidence> findAll(UUID inspectionId) {
+        loadForReadableUser(inspectionId);
+        return evidenceRepository.findAllByInspectionIdAndDeletedAtIsNullOrderByServerReceivedAtAsc(inspectionId);
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EVIDENCE_READ)
+    public InspectionEvidenceDownload download(UUID evidenceId) {
+        InspectionEvidence evidence = evidenceRepository.findById(evidenceId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Evidence", evidenceId));
+        loadForReadableUser(evidence.getInspectionId());
+        if (evidence.isDeleted()) {
+            throw ResourceNotFoundException.of("Evidence", evidenceId);
+        }
+        return new InspectionEvidenceDownload(evidence, evidenceStorage.read(evidence.getStorageKey()));
+    }
+
+    @Transactional
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public void delete(UUID evidenceId) {
+        InspectionEvidence evidence = evidenceRepository.findById(evidenceId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Evidence", evidenceId));
+        Inspection inspection = loadForTechnician(evidence.getInspectionId());
+        if (evidence.isDeleted()) {
+            throw ResourceNotFoundException.of("Evidence", evidenceId);
+        }
+        if (inspection.getStatus() == InspectionStatus.APPROVED) {
+            throw new BusinessRuleException("EVIDENCE_READ_ONLY", "Evidence from an approved inspection is read-only");
+        }
+        String before = auditState(evidence);
+        evidence.remove(currentUserId(), Instant.now(clock));
+        evidenceStorage.delete(evidence.getStorageKey());
+        InspectionEvidence saved = evidenceRepository.saveAndFlush(evidence);
+        auditEventService.recordEvent("EVIDENCE_REMOVED", EVIDENCE_ENTITY, saved.getId(), before, auditState(saved));
+    }
+
+    private Inspection loadForTechnician(UUID inspectionId) {
+        return inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, currentUserId())
+                .orElseThrow(() -> ResourceNotFoundException.of("Inspection", inspectionId));
+    }
+
+    private Inspection loadForReadableUser(UUID inspectionId) {
+        User user = authenticatedUserResolver.requireUser(SecurityContextHolder.getContext().getAuthentication());
+        if (user.getRole() == UserRole.TECHNICIAN) {
+            return inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, user.getId())
+                    .orElseThrow(() -> ResourceNotFoundException.of("Inspection", inspectionId));
+        }
+        if (user.getRole() == UserRole.SUPERVISOR) {
+            return inspectionRepository.findByIdAndSupervisorId(inspectionId, user.getId())
+                    .orElseThrow(() -> ResourceNotFoundException.of("Inspection", inspectionId));
+        }
+        throw ResourceNotFoundException.of("Inspection", inspectionId);
+    }
+
+    private void validateResponseLink(UUID inspectionId, UUID responseId) {
+        if (responseId != null && responseRepository.findByIdAndInspectionId(responseId, inspectionId).isEmpty()) {
+            throw new BusinessRuleException(
+                    "EVIDENCE_RESPONSE_NOT_IN_INSPECTION",
+                    "The response does not belong to the inspection",
+                    List.of(new Violation("responseId", "The response is not part of this inspection"))
+            );
+        }
+    }
+
+    private void validateCoordinates(EvidenceMetadataRequest metadata) {
+        boolean hasLatitude = metadata.latitude() != null;
+        boolean hasLongitude = metadata.longitude() != null;
+        if (hasLatitude != hasLongitude) {
+            throw new BusinessRuleException(
+                    "EVIDENCE_LOCATION_INVALID",
+                    "Latitude and longitude must be sent together",
+                    List.of(new Violation("location", "Both latitude and longitude are required"))
+            );
+        }
+        if (hasLatitude) {
+            try {
+                FieldPosition.of(metadata.latitude(), metadata.longitude(), metadata.accuracyMeters(),
+                        metadata.capturedAtDevice());
+            } catch (IllegalArgumentException exception) {
+                throw new BusinessRuleException(
+                        "EVIDENCE_LOCATION_INVALID", "The evidence location is invalid",
+                        List.of(new Violation("location", exception.getMessage()))
+                );
+            }
+        }
+    }
+
+    private UUID currentUserId() {
+        return authenticatedUserResolver.requireUserId(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    private String checksum(byte[] content) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
+    }
+
+    private String auditState(InspectionEvidence evidence) {
+        return "{\"inspectionId\":\"" + evidence.getInspectionId()
+                + "\",\"responseId\":" + jsonUuid(evidence.getResponseId())
+                + ",\"mimeType\":\"" + evidence.getMimeType()
+                + "\",\"sizeBytes\":" + evidence.getSizeBytes()
+                + ",\"checksum\":\"" + evidence.getChecksum()
+                + "\",\"deletedAt\":" + (evidence.getDeletedAt() == null ? "null" : "\"" + evidence.getDeletedAt() + "\"")
+                + "}";
+    }
+
+    private String jsonUuid(UUID value) {
+        return value == null ? "null" : "\"" + value + "\"";
+    }
+}

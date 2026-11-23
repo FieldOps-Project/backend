@@ -7,6 +7,7 @@ import com.fieldops.inspection.domain.model.InspectionPriority;
 import com.fieldops.inspection.domain.model.InspectionResponse;
 import com.fieldops.inspection.domain.model.InspectionResponseConformity;
 import com.fieldops.inspection.domain.model.InspectionResponseValue;
+import com.fieldops.inspection.domain.model.InspectionEvidence;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.domain.model.InspectionTemplate;
 import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
@@ -81,6 +82,9 @@ class InspectionPersistenceTest {
 
     @Autowired
     private InspectionResponseRepository responseRepository;
+
+    @Autowired
+    private InspectionEvidenceRepository evidenceRepository;
 
     private UUID technicianId;
     private UUID supervisorId;
@@ -221,6 +225,41 @@ class InspectionPersistenceTest {
                 Instant.parse("2026-08-01T16:13:30Z"),
                 0
         ))).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void persistsEvidenceMetadataAndKeepsItAfterSoftDelete() {
+        Inspection inspection = inspectionRepository.saveAndFlush(newInspection(null));
+        UUID evidenceId = UUID.randomUUID();
+        Instant receivedAt = Instant.parse("2026-08-01T16:12:30Z");
+
+        InspectionEvidence evidence = evidenceRepository.saveAndFlush(InspectionEvidence.create(
+                evidenceId,
+                inspection.getId(),
+                null,
+                null,
+                "PHOTO",
+                "inspections/" + inspection.getId() + "/" + evidenceId + ".jpg",
+                "image/jpeg",
+                4,
+                "aabbccdd",
+                "Lacre danificado",
+                BigDecimal.valueOf(-23.5),
+                BigDecimal.valueOf(-47.4),
+                BigDecimal.valueOf(12.5),
+                Instant.parse("2026-08-01T13:12:30Z"),
+                receivedAt,
+                receivedAt,
+                technicianId
+        ));
+
+        assertThat(evidenceRepository.findById(evidenceId).orElseThrow().getStorageKey())
+                .doesNotContain("original");
+
+        evidence.remove(technicianId, Instant.parse("2026-08-01T16:20:00Z"));
+        evidenceRepository.saveAndFlush(evidence);
+
+        assertThat(evidenceRepository.findById(evidenceId).orElseThrow().isDeleted()).isTrue();
     }
 
     @Test

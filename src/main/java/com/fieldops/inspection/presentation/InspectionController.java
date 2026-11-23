@@ -9,6 +9,8 @@ import com.fieldops.inspection.application.InspectionSchedulingService;
 import com.fieldops.inspection.application.InspectionTransitionResult;
 import com.fieldops.inspection.application.InspectionTransitionService;
 import com.fieldops.inspection.application.InspectionResponseService;
+import com.fieldops.inspection.application.InspectionEvidenceDownload;
+import com.fieldops.inspection.application.InspectionEvidenceService;
 import com.fieldops.inspection.domain.model.InspectionPriority;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.presentation.dto.AssignInspectionRequest;
@@ -22,6 +24,8 @@ import com.fieldops.inspection.presentation.dto.InspectionResponseBatchRequest;
 import com.fieldops.inspection.presentation.dto.InspectionResponseBatchResponse;
 import com.fieldops.inspection.presentation.dto.InspectionResponseResponse;
 import com.fieldops.inspection.presentation.dto.SaveInspectionResponseRequest;
+import com.fieldops.inspection.presentation.dto.EvidenceMetadataRequest;
+import com.fieldops.inspection.presentation.dto.EvidenceResponse;
 import com.fieldops.inspection.presentation.dto.StartInspectionRequest;
 import com.fieldops.inspection.presentation.dto.SubmitInspectionRequest;
 import com.fieldops.inspection.presentation.dto.MobileInspectionResponse;
@@ -32,6 +36,7 @@ import com.fieldops.inspection.presentation.mapper.InspectionListMapper;
 import com.fieldops.inspection.presentation.mapper.InspectionMobileMapper;
 import com.fieldops.inspection.presentation.mapper.InspectionTransitionMapper;
 import com.fieldops.inspection.presentation.mapper.InspectionResponseMapper;
+import com.fieldops.inspection.presentation.mapper.InspectionEvidenceMapper;
 import com.fieldops.shared.presentation.dto.ApiError;
 import com.fieldops.shared.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,17 +48,25 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.List;
@@ -74,6 +87,8 @@ public class InspectionController {
     private final InspectionTransitionMapper transitionMapper;
     private final ObjectProvider<InspectionResponseService> responseServiceProvider;
     private final InspectionResponseMapper responseMapper;
+    private final ObjectProvider<InspectionEvidenceService> evidenceServiceProvider;
+    private final InspectionEvidenceMapper evidenceMapper;
 
     public InspectionController(
             InspectionSchedulingService schedulingService,
@@ -85,7 +100,9 @@ public class InspectionController {
             InspectionTransitionService transitionService,
             InspectionTransitionMapper transitionMapper,
             ObjectProvider<InspectionResponseService> responseServiceProvider,
-            InspectionResponseMapper responseMapper
+            InspectionResponseMapper responseMapper,
+            ObjectProvider<InspectionEvidenceService> evidenceServiceProvider,
+            InspectionEvidenceMapper evidenceMapper
     ) {
         this.schedulingService = schedulingService;
         this.inspectionMapper = inspectionMapper;
@@ -97,6 +114,8 @@ public class InspectionController {
         this.transitionMapper = transitionMapper;
         this.responseServiceProvider = responseServiceProvider;
         this.responseMapper = responseMapper;
+        this.evidenceServiceProvider = evidenceServiceProvider;
+        this.evidenceMapper = evidenceMapper;
     }
 
     @GetMapping("/inspections")
@@ -472,6 +491,62 @@ public class InspectionController {
         InspectionResponseService service = responseServiceProvider.getIfAvailable();
         if (service == null) {
             throw new IllegalStateException("Inspection response persistence is not available");
+        }
+        return service;
+    }
+
+    @PostMapping(value = "/inspections/{inspectionId}/evidence", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Upload private inspection evidence",
+            description = "Stores image metadata in the API and the bytes in private storage.")
+    public EvidenceResponse uploadEvidence(
+            @PathVariable UUID inspectionId,
+            @Valid @RequestPart("metadata") EvidenceMetadataRequest metadata,
+            @RequestPart("file") MultipartFile file
+    ) {
+        return evidenceMapper.toResponse(evidenceService().upload(inspectionId, metadata, file));
+    }
+
+    @GetMapping("/inspections/{inspectionId}/evidence")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EVIDENCE_READ)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "List inspection evidence",
+            description = "Lists active evidence visible to the technician or supervisor in scope.")
+    public List<EvidenceResponse> listEvidence(@PathVariable UUID inspectionId) {
+        return evidenceService().findAll(inspectionId).stream().map(evidenceMapper::toResponse).toList();
+    }
+
+    @GetMapping("/evidence/{id}")
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EVIDENCE_READ)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Download private evidence",
+            description = "Streams evidence only after server-side scope validation.")
+    public ResponseEntity<Resource> downloadEvidence(@PathVariable UUID id) {
+        InspectionEvidenceDownload download = evidenceService().download(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(download.evidence().getMimeType()))
+                .contentLength(download.content().length)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(new ByteArrayResource(download.content()));
+    }
+
+    @DeleteMapping("/evidence/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Delete evidence",
+            description = "Soft-deletes evidence, removes the private object and records an audit event.")
+    public void deleteEvidence(@PathVariable UUID id) {
+        evidenceService().delete(id);
+    }
+
+    private InspectionEvidenceService evidenceService() {
+        InspectionEvidenceService service = evidenceServiceProvider.getIfAvailable();
+        if (service == null) {
+            throw new IllegalStateException("Inspection evidence persistence is not available");
         }
         return service;
     }
