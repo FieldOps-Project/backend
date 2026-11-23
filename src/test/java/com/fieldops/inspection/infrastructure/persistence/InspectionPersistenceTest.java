@@ -26,6 +26,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -163,6 +164,47 @@ class InspectionPersistenceTest {
 
         assertThat(snapshotRepository.findById(lacre.getId()).orElseThrow().getItemTitle())
                 .isEqualTo("O lacre esta intacto?");
+    }
+
+    @Test
+    void mobileInspectionLookupRequiresTheAuthenticatedTechnician() {
+        Inspection inspection = inspectionRepository.saveAndFlush(newInspection(null));
+        UUID anotherTechnicianId = insertUser("TECHNICIAN");
+
+        assertThat(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(
+                inspection.getId(), technicianId
+        )).isPresent();
+        assertThat(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(
+                inspection.getId(), anotherTechnicianId
+        )).isEmpty();
+    }
+
+    @Test
+    void mobileSpecificationFiltersTechnicianStatusAndUpdatedSince() {
+        Inspection mine = inspectionRepository.saveAndFlush(newInspection(null));
+        UUID anotherTechnicianId = insertUser("TECHNICIAN");
+        Inspection outsideScope = Inspection.create(
+                published, clientId, siteId, null, anotherTechnicianId, supervisorId, supervisorId,
+                "Outra inspecao", null, InspectionPriority.MEDIUM, Instant.now()
+        );
+        inspectionRepository.saveAndFlush(outsideScope);
+
+        List<Inspection> result = inspectionRepository.findAll(
+                InspectionMobileSpecifications.forTechnician(
+                        technicianId,
+                        InspectionStatus.ASSIGNED,
+                        Instant.now().minus(1, ChronoUnit.DAYS)
+                ),
+                Sort.by(Sort.Direction.ASC, "scheduledFor")
+        );
+
+        assertThat(result).extracting(Inspection::getId).containsExactly(mine.getId());
+        assertThat(inspectionRepository.findAll(
+                InspectionMobileSpecifications.forTechnician(
+                        technicianId, null, Instant.now().plus(1, ChronoUnit.DAYS)
+                ),
+                Sort.unsorted()
+        )).isEmpty();
     }
 
     @Test

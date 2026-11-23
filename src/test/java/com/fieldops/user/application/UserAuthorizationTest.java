@@ -184,6 +184,16 @@ class UserAuthorizationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void administratorGetsForbiddenFromMobileInspectionEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/mobile/inspections")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
     @WithMockUser(roles = "SUPERVISOR")
     void supervisorGetsForbiddenFromUserManagementEndpoint() throws Exception {
         mockMvc.perform(post("/users")
