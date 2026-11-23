@@ -337,6 +337,24 @@ class InspectionTransitionServiceTest {
         );
     }
 
+    @Test
+    void submitBlocksCriticalNonConformityWithoutEvidenceAtConsolidation() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.IN_PROGRESS);
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+        transitionService = transitionService(
+                inspectionIdValue -> List.of(),
+                inspectionIdValue -> true
+        );
+
+        assertThatThrownBy(() -> transitionService.submit(
+                inspectionId, new SubmitInspectionRequest(Instant.now(), null)
+        )).isInstanceOf(BusinessRuleException.class)
+                .hasFieldOrPropertyWithValue("code", "INSPECTION_CRITICAL_NON_CONFORMITY_EVIDENCE_MISSING");
+        verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
+    }
+
     private void authenticateTechnician() {
         authentication = new TestingAuthenticationToken("technician", "password");
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -344,6 +362,13 @@ class InspectionTransitionServiceTest {
     }
 
     private InspectionTransitionService transitionService(InspectionResponseReader responseReader) {
+        return transitionService(responseReader, inspectionIdValue -> false);
+    }
+
+    private InspectionTransitionService transitionService(
+            InspectionResponseReader responseReader,
+            InspectionNonConformityReader nonConformityReader
+    ) {
         return new InspectionTransitionService(
                 inspectionRepository,
                 userRepository,
@@ -351,6 +376,7 @@ class InspectionTransitionServiceTest {
                 auditEventService,
                 authenticatedUserResolver,
                 responseReader,
+                nonConformityReader,
                 Clock.fixed(Instant.parse("2026-11-23T12:00:00Z"), java.time.ZoneOffset.UTC)
         );
     }

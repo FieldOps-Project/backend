@@ -10,6 +10,7 @@ import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.infrastructure.persistence.InspectionEvidenceRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionResponseRepository;
+import com.fieldops.inspection.infrastructure.persistence.NonConformityRepository;
 import com.fieldops.inspection.infrastructure.storage.EvidenceStorage;
 import com.fieldops.inspection.presentation.dto.EvidenceMetadataRequest;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
@@ -40,6 +41,7 @@ public class InspectionEvidenceService {
     private final InspectionRepository inspectionRepository;
     private final InspectionEvidenceRepository evidenceRepository;
     private final InspectionResponseRepository responseRepository;
+    private final NonConformityRepository nonConformityRepository;
     private final EvidenceStorage evidenceStorage;
     private final EvidenceFileValidator fileValidator;
     private final AuthenticatedUserResolver authenticatedUserResolver;
@@ -51,6 +53,7 @@ public class InspectionEvidenceService {
             InspectionRepository inspectionRepository,
             InspectionEvidenceRepository evidenceRepository,
             InspectionResponseRepository responseRepository,
+            NonConformityRepository nonConformityRepository,
             EvidenceStorage evidenceStorage,
             EvidenceFileValidator fileValidator,
             AuthenticatedUserResolver authenticatedUserResolver,
@@ -60,6 +63,7 @@ public class InspectionEvidenceService {
         this.inspectionRepository = inspectionRepository;
         this.evidenceRepository = evidenceRepository;
         this.responseRepository = responseRepository;
+        this.nonConformityRepository = nonConformityRepository;
         this.evidenceStorage = evidenceStorage;
         this.fileValidator = fileValidator;
         this.authenticatedUserResolver = authenticatedUserResolver;
@@ -81,6 +85,7 @@ public class InspectionEvidenceService {
         }
 
         validateResponseLink(inspectionId, metadata.responseId());
+        validateNonConformityLink(inspectionId, metadata.nonConformityId());
         validateCoordinates(metadata);
         EvidenceFileValidator.ValidatedEvidenceFile validated = fileValidator.validate(file, maxSizeBytes);
         UUID actor = currentUserId();
@@ -166,6 +171,16 @@ public class InspectionEvidenceService {
                     "EVIDENCE_RESPONSE_NOT_IN_INSPECTION",
                     "The response does not belong to the inspection",
                     List.of(new Violation("responseId", "The response is not part of this inspection"))
+            );
+        }
+    }
+
+    private void validateNonConformityLink(UUID inspectionId, UUID nonConformityId) {
+        if (nonConformityId != null && nonConformityRepository.findByIdAndInspectionId(nonConformityId, inspectionId).isEmpty()) {
+            throw new BusinessRuleException(
+                    "EVIDENCE_NON_CONFORMITY_NOT_IN_INSPECTION",
+                    "The non-conformity does not belong to the inspection",
+                    List.of(new Violation("nonConformityId", "The non-conformity is not part of this inspection"))
             );
         }
     }

@@ -99,6 +99,22 @@ DELETE /api/v1/evidence/{id}
 
 O MVP aceita JPEG e PNG, valida a assinatura dos bytes, limita o tamanho por `APP_EVIDENCE_MAX_SIZE_BYTES` e nunca usa o nome original para criar a chave. O download exige autenticacao e escopo de tecnico ou supervisor. O upload e idempotente por `id`/`evidenceId`; a exclusao e logica, remove o objeto privado, preserva os metadados e gera `EVIDENCE_REMOVED`. Evidencias de inspecoes `APPROVED` sao somente leitura.
 
+### Nao conformidades
+
+As nao conformidades sao sincronizadas com o id gerado no dispositivo e podem ser consultadas por tecnico ou supervisor no escopo da inspecao:
+
+```text
+GET   /api/v1/non-conformities?inspectionId=&severity=&status=&clientId=&page=&size=
+GET   /api/v1/non-conformities/{id}
+POST  /api/v1/inspections/{inspectionId}/non-conformities
+PUT   /api/v1/non-conformities/{id}
+PATCH /api/v1/non-conformities/{id}/status
+```
+
+O `POST` e idempotente pelo `id`/`nonConformityId`, exige titulo, descricao e severidade (`LOW`, `MEDIUM`, `HIGH` ou `CRITICAL`) e rejeita item/resposta de outra inspecao. A criacao de uma `CRITICAL` sem evidencia e aceita durante a sincronizacao offline; a validacao e aplicada no ponto de consolidacao, imediatamente antes da transicao `submit`, bloqueando o envio com `422` ate que exista uma evidencia ativa vinculada. O MVP possui somente o status `OPEN`; valores futuros sao rejeitados.
+
+Nao ha endpoint de exclusao: depois do envio a nao conformidade permanece no historico e qualquer mudanca e auditada. A criacao gera `NON_CONFORMITY_CREATED`.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 
@@ -126,6 +142,7 @@ A API valida autorizacao no servidor com `@PreAuthorize` nos endpoints e nos ser
 | Executar inspecao | nao | nao | somente as proprias |
 | Revisar, aprovar e reprovar | nao | sim | nao |
 | Evidencias | nao | leitura no escopo | upload, leitura e exclusao antes da aprovacao |
+| Nao conformidades | nao | leitura no escopo | criacao e edicao no proprio escopo |
 | Auditoria | leitura | leitura no escopo | nenhum |
 
 Os endpoints existentes de usuarios aplicam essa matriz: ADMIN pode gerenciar, ADMIN e SUPERVISOR podem consultar, e os demais perfis recebem `403 AUTH_FORBIDDEN`. Recursos pertencentes a outro tecnico devem filtrar pelo usuario autenticado e devolver `404`, sem aceitar `technicianId` ou outro identificador de escopo no payload.

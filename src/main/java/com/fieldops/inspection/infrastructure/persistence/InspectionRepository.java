@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface InspectionRepository extends JpaRepository<Inspection, UUID>, JpaSpecificationExecutor<Inspection> {
@@ -17,4 +18,8 @@ public interface InspectionRepository extends JpaRepository<Inspection, UUID>, J
     Optional<Inspection> findWithSnapshotsByIdAndTechnicianId(UUID id, UUID technicianId);
 
     Optional<Inspection> findByIdAndSupervisorId(UUID id, UUID supervisorId);
+
+    List<Inspection> findAllByTechnicianId(UUID technicianId);
+
+    List<Inspection> findAllBySupervisorId(UUID supervisorId);
 }

@@ -14,4 +14,6 @@ public interface InspectionEvidenceRepository extends JpaRepository<InspectionEv
     Optional<InspectionEvidence> findByIdAndInspectionId(UUID id, UUID inspectionId);
 
     boolean existsByResponseIdAndDeletedAtIsNull(UUID responseId);
+
+    boolean existsByNonConformityIdAndDeletedAtIsNull(UUID nonConformityId);
 }
