@@ -2,11 +2,17 @@ package com.fieldops.inspection.presentation;
 
 import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
 import com.fieldops.inspection.application.InspectionSchedulingService;
+import com.fieldops.inspection.application.InspectionTransitionResult;
+import com.fieldops.inspection.application.InspectionTransitionService;
+import com.fieldops.inspection.presentation.dto.AssignInspectionRequest;
+import com.fieldops.inspection.presentation.dto.CancelInspectionRequest;
 import com.fieldops.inspection.presentation.dto.CreateInspectionRequest;
 import com.fieldops.inspection.presentation.dto.InspectionResponse;
 import com.fieldops.inspection.presentation.dto.InspectionSummaryResponse;
+import com.fieldops.inspection.presentation.dto.InspectionTransitionResponse;
 import com.fieldops.inspection.presentation.dto.UpdateInspectionRequest;
 import com.fieldops.inspection.presentation.mapper.InspectionMapper;
+import com.fieldops.inspection.presentation.mapper.InspectionTransitionMapper;
 import com.fieldops.shared.presentation.dto.ApiError;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -38,13 +44,19 @@ public class InspectionController {
 
     private final InspectionSchedulingService schedulingService;
     private final InspectionMapper inspectionMapper;
+    private final InspectionTransitionService transitionService;
+    private final InspectionTransitionMapper transitionMapper;
 
     public InspectionController(
             InspectionSchedulingService schedulingService,
-            InspectionMapper inspectionMapper
+            InspectionMapper inspectionMapper,
+            InspectionTransitionService transitionService,
+            InspectionTransitionMapper transitionMapper
     ) {
         this.schedulingService = schedulingService;
         this.inspectionMapper = inspectionMapper;
+        this.transitionService = transitionService;
+        this.transitionMapper = transitionMapper;
     }
 
     @GetMapping("/inspections")
@@ -158,6 +170,58 @@ public class InspectionController {
             @Valid @RequestBody UpdateInspectionRequest request
     ) {
         return inspectionMapper.toResponse(schedulingService.update(id, request));
+    }
+
+    @PostMapping("/inspections/{id}/assign")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_SCHEDULE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Assign an inspection to an active technician",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Inspection assigned",
+                            content = @Content(schema = @Schema(implementation = InspectionTransitionResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid request",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection or technician not found",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "409", description = "Invalid inspection transition",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "422", description = "Technician is not eligible",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public InspectionTransitionResponse assign(
+            @PathVariable UUID id,
+            @Valid @RequestBody AssignInspectionRequest request
+    ) {
+        InspectionTransitionResult result = transitionService.assign(id, request.technicianId());
+        return transitionMapper.toResponse(result.inspection(), result.previousStatus());
+    }
+
+    @PostMapping("/inspections/{id}/cancel")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_SCHEDULE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Cancel an inspection with a business reason",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Inspection canceled",
+                            content = @Content(schema = @Schema(implementation = InspectionTransitionResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Cancellation reason is missing",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection not found",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "409", description = "Invalid inspection transition",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public InspectionTransitionResponse cancel(
+            @PathVariable UUID id,
+            @Valid @RequestBody CancelInspectionRequest request
+    ) {
+        InspectionTransitionResult result = transitionService.cancel(id, request.reason());
+        return transitionMapper.toResponse(result.inspection(), result.previousStatus());
     }
 
     private List<InspectionSummaryResponse> mockInspectionList() {

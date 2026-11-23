@@ -36,6 +36,17 @@ docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -e TESTCONTAINERS_
 
 Os horarios vem em pares: `*_at_device` e o relogio do aparelho no momento da acao, `*_at_server` e quando a API recebeu (RN-034, RN-074). O snapshot copia texto e regras do item; `source_template_item_id` e apenas rastro historico.
 
+### Maquina de estados da inspecao
+
+`InspectionStateMachine` concentra as dez transicoes permitidas. Atribuicao e cancelamento usam os endpoints:
+
+```text
+POST /api/v1/inspections/{id}/assign  { "technicianId": "uuid" }
+POST /api/v1/inspections/{id}/cancel  { "reason": "texto obrigatorio" }
+```
+
+Somente ADMIN ou SUPERVISOR podem executar essas operacoes. O tecnico precisa estar ativo e ter o perfil `TECHNICIAN`; transicoes invalidas retornam `409 INSPECTION_INVALID_TRANSITION`. O cancelamento grava autor, data e justificativa na inspecao e registra o estado anterior e o novo em `audit_events`.
+
 `V12__add_inspection_positions.sql` acrescenta a posicao lida uma unica vez no inicio e na conclusao (`start_*` e `completion_*`: latitude, longitude, precisao em metros e horario da leitura; RN-060 a RN-062). E a posicao do aparelho do tecnico naquele momento, nao o endereco do local nem o equipamento. O banco exige posicao completa, coordenadas no intervalo valido e a acao correspondente registrada; sem posicao, as colunas ficam nulas. Na entidade, `FieldPosition` e gravada por `recordStartPosition`/`recordCompletionPosition`, que o caso de uso de inicio e envio (#20) chama com o `location` recebido.
 
 ## Contribuição
