@@ -49,6 +49,14 @@ Somente ADMIN ou SUPERVISOR podem executar essas operacoes. O tecnico precisa es
 
 `V12__add_inspection_positions.sql` acrescenta a posicao lida uma unica vez no inicio e na conclusao (`start_*` e `completion_*`: latitude, longitude, precisao em metros e horario da leitura; RN-060 a RN-062). E a posicao do aparelho do tecnico naquele momento, nao o endereco do local nem o equipamento. O banco exige posicao completa, coordenadas no intervalo valido e a acao correspondente registrada; sem posicao, as colunas ficam nulas. Na entidade, `FieldPosition` e gravada por `recordStartPosition`/`recordCompletionPosition`, que o caso de uso de inicio e envio (#20) chama com o `location` recebido.
 
+### Listagem administrativa
+
+O acompanhamento usa `GET /api/v1/inspections` e devolve o envelope paginado padrao (`content`, `page`, `size`, `totalElements`, `totalPages`, `first`, `last`). Os filtros disponiveis sao `search`, `status`, `technicianId`, `supervisorId`, `clientId`, `siteId`, `equipmentId`, `priority`, `scheduledFrom`, `scheduledTo` e `overdue`; a ordenacao usa `sort=scheduledFor,asc` por padrao e aceita `title`, `priority`, `status`, `scheduledFor`, `createdAt` ou `updatedAt`, com direcao `asc` ou `desc`.
+
+Somente `ADMIN` e `SUPERVISOR` acessam a listagem. O administrador consulta todos os registros ou filtra por supervisor; o supervisor autenticado sempre fica restrito ao proprio escopo, mesmo que outro `supervisorId` seja enviado. O tamanho da pagina e limitado a 100. `overdue` e calculado em tempo de consulta como data prevista anterior ao momento atual e estado `ASSIGNED` ou `IN_PROGRESS`; estados enviados, aprovados e cancelados nao sao considerados atrasados.
+
+Cada linha traz os identificadores e nomes de cliente, local, equipamento e tecnico, alem de prioridade, estado, data prevista, ultima atualizacao, itens aplicaveis, itens respondidos, percentual de progresso e atraso. A contagem de itens do snapshot e feita em agregacao e os relacionamentos sao carregados em lote para evitar N+1; a contagem de respostas sera preenchida pelo modelo de execucao da inspecao.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 
