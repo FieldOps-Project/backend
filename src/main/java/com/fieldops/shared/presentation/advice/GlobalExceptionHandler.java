@@ -4,7 +4,9 @@ import com.fieldops.auth.domain.exception.AuthException;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.ConflictException;
 import com.fieldops.shared.domain.exception.InvalidRequestException;
+import com.fieldops.shared.domain.exception.PayloadTooLargeException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
+import com.fieldops.shared.domain.exception.UnsupportedFileTypeException;
 import com.fieldops.shared.infrastructure.filter.RequestIdFilter;
 import com.fieldops.shared.presentation.dto.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.Instant;
 import java.util.List;
@@ -78,6 +81,26 @@ public class GlobalExceptionHandler {
         ApiError body = buildError(HttpStatus.BAD_REQUEST, ex.getCode(), ex.getMessage(), request);
         log.warn("Invalid request on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getCode());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(UnsupportedFileTypeException.class)
+    public ResponseEntity<ApiError> handleUnsupportedFile(UnsupportedFileTypeException ex,
+                                                           HttpServletRequest request) {
+        ApiError body = buildError(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ex.getCode(), ex.getMessage(), request);
+        log.warn("Unsupported evidence format on {} {}", request.getMethod(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body);
+    }
+
+    @ExceptionHandler({PayloadTooLargeException.class, MaxUploadSizeExceededException.class})
+    public ResponseEntity<ApiError> handlePayloadTooLarge(Exception ex,
+                                                          HttpServletRequest request) {
+        String code = ex instanceof PayloadTooLargeException payload
+                ? payload.getCode()
+                : "EVIDENCE_TOO_LARGE";
+        ApiError body = buildError(HttpStatus.PAYLOAD_TOO_LARGE, code,
+                "The uploaded evidence is too large", request);
+        log.warn("Evidence payload too large on {} {}", request.getMethod(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body);
     }
 
     // ── 405 Method Not Allowed ──────────────────────────────────────────

@@ -23,6 +23,11 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 26MB
+
 server:
   port: 8080
 
@@ -43,6 +48,9 @@ app:
       secret: ${JWT_SECRET:}
       access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
       refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P30D}
+  evidence:
+    max-size-bytes: ${APP_EVIDENCE_MAX_SIZE_BYTES:10485760}
+    storage-dir: ${APP_EVIDENCE_STORAGE_DIR:${java.io.tmpdir}/fieldops-evidence}
 
 # ── Logging ─────────────────────────────────────────────────────────
 logging:

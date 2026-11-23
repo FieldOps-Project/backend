@@ -15,4 +15,6 @@ public interface InspectionRepository extends JpaRepository<Inspection, UUID>, J
 
     @EntityGraph(attributePaths = "itemSnapshots")
     Optional<Inspection> findWithSnapshotsByIdAndTechnicianId(UUID id, UUID technicianId);
+
+    Optional<Inspection> findByIdAndSupervisorId(UUID id, UUID supervisorId);
 }
