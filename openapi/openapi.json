@@ -80,8 +80,8 @@
                 "$ref": "#/components/schemas/LoginRequest"
               },
               "example": {
-                "email": "tecnico@fieldops.local",
-                "password": "senha-informada-pelo-usuario"
+                "password": "senha-informada-pelo-usuario",
+                "email": "tecnico@fieldops.local"
               }
             }
           },
@@ -2313,6 +2313,205 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/inspections/{id}/submit": {
+      "post": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Submit an inspection",
+        "description": "Validates all required snapshot items server-side, then records completion and server timestamps.",
+        "operationId": "submit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Inspection submitted",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionExecutionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection is not assigned to this technician",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invalid inspection transition",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Required responses, observations or evidence are missing",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inspections/{id}/start": {
+      "post": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Start an inspection",
+        "description": "Starts an inspection assigned to the authenticated technician and records device/server timestamps.",
+        "operationId": "start",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Inspection started",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionExecutionResponse"
+                },
+                "example": {
+                  "id": "3d8dc050-54f4-4d3b-9e5d-5fdb29ae3ed5",
+                  "previousStatus": "ASSIGNED",
+                  "status": "IN_PROGRESS",
+                  "startedAtDevice": "2026-08-01T13:02:00Z",
+                  "startedAtServer": "2026-08-01T16:02:04Z",
+                  "startPosition": {
+                    "latitude": -23.5,
+                    "longitude": -47.4,
+                    "accuracy": 12.5,
+                    "capturedAt": "2026-08-01T13:02:03Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection is not assigned to this technician",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invalid inspection transition",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/inspections/{id}/cancel": {
@@ -5499,6 +5698,147 @@
           "siteId",
           "templateVersionId",
           "title"
+        ]
+      },
+      "InspectionExecutionResponse": {
+        "type": "object",
+        "description": "Inspection transition with device/server timestamps.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousStatus": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
+          },
+          "technicianId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startedAtDevice": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAtServer": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAtDevice": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "submittedAtServer": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startPosition": {
+            "$ref": "#/components/schemas/InspectionPositionResponse"
+          },
+          "completionPosition": {
+            "$ref": "#/components/schemas/InspectionPositionResponse"
+          }
+        }
+      },
+      "InspectionPositionResponse": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "accuracy": {
+            "type": "number"
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InspectionLocationRequest": {
+        "type": "object",
+        "description": "Optional device position captured during a transition.",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0
+          },
+          "accuracy": {
+            "type": "number",
+            "minimum": 0
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "capturedAt",
+          "latitude",
+          "longitude"
+        ]
+      },
+      "SubmitInspectionRequest": {
+        "type": "object",
+        "properties": {
+          "completedAtDevice": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp recorded by the device; the server timestamp is generated by the API."
+          },
+          "location": {
+            "$ref": "#/components/schemas/InspectionLocationRequest"
+          }
+        },
+        "required": [
+          "completedAtDevice"
+        ]
+      },
+      "StartInspectionRequest": {
+        "type": "object",
+        "properties": {
+          "startedAtDevice": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp recorded by the device; the server timestamp is generated by the API."
+          },
+          "location": {
+            "$ref": "#/components/schemas/InspectionLocationRequest"
+          }
+        },
+        "required": [
+          "startedAtDevice"
         ]
       },
       "InspectionTransitionResponse": {

@@ -240,6 +240,22 @@ public class Inspection {
         this.completionPosition = position;
     }
 
+    /** Records the device/server pair and moves an assigned inspection to execution. */
+    public void start(Instant startedAtDevice, Instant startedAtServer, FieldPosition position) {
+        this.startedAtDevice = Objects.requireNonNull(startedAtDevice, "startedAtDevice must not be null");
+        this.startedAtServer = Objects.requireNonNull(startedAtServer, "startedAtServer must not be null");
+        this.recordStartPosition(position);
+        this.status = InspectionStatus.IN_PROGRESS;
+    }
+
+    /** Records the device/server pair and moves an in-progress inspection to submitted. */
+    public void submit(Instant completedAtDevice, Instant submittedAtServer, FieldPosition position) {
+        this.completedAtDevice = Objects.requireNonNull(completedAtDevice, "completedAtDevice must not be null");
+        this.submittedAtServer = Objects.requireNonNull(submittedAtServer, "submittedAtServer must not be null");
+        this.recordCompletionPosition(position);
+        this.status = InspectionStatus.SUBMITTED;
+    }
+
     // ── Getters ──────────────────────────────────────────────
 
     public UUID getId() {
