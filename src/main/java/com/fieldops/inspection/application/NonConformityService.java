@@ -4,6 +4,7 @@ import com.fieldops.audit.application.AuditEventService;
 import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
 import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
 import com.fieldops.inspection.domain.model.Inspection;
+import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.domain.model.NonConformity;
 import com.fieldops.inspection.domain.model.NonConformitySeverity;
 import com.fieldops.inspection.domain.model.NonConformityStatus;
@@ -100,6 +101,7 @@ public class NonConformityService implements InspectionNonConformityReader {
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public NonConformity create(UUID inspectionId, CreateNonConformityRequest request) {
         Inspection inspection = loadForTechnician(inspectionId);
+        assertEditable(inspection);
         NonConformity existing = repository.findById(request.id()).orElse(null);
         if (existing != null) {
             if (!existing.getInspectionId().equals(inspectionId)) {
@@ -153,13 +155,22 @@ public class NonConformityService implements InspectionNonConformityReader {
     private NonConformity loadForUpdate(UUID id) {
         NonConformity nonConformity = repository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("NonConformity", id));
-        loadForTechnician(nonConformity.getInspectionId());
+        assertEditable(loadForTechnician(nonConformity.getInspectionId()));
         return nonConformity;
     }
 
     private Inspection loadForTechnician(UUID inspectionId) {
         return inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, currentUserId())
                 .orElseThrow(() -> ResourceNotFoundException.of("Inspection", inspectionId));
+    }
+
+    private void assertEditable(Inspection inspection) {
+        if (inspection.getStatus() == InspectionStatus.APPROVED) {
+            throw new BusinessRuleException(
+                    "INSPECTION_APPROVED_READ_ONLY",
+                    "Approved inspection data cannot be changed"
+            );
+        }
     }
 
     private Inspection loadReadable(UUID inspectionId) {

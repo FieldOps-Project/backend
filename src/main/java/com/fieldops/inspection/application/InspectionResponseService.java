@@ -104,6 +104,22 @@ public class InspectionResponseService implements InspectionResponseReader {
         return toResponse(upsertForInspection(inspection, responseId, request));
     }
 
+    /**
+     * Applies a response from the synchronization pipeline while keeping the
+     * same snapshot, ownership, editability and optimistic-version rules used
+     * by the online endpoint.
+     */
+    @Transactional
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public InspectionResponse applyFromSynchronization(
+            UUID inspectionId,
+            SaveInspectionResponseRequest request
+    ) {
+        Inspection inspection = loadInspection(inspectionId);
+        assertEditable(inspection);
+        return upsertForInspection(inspection, request.id(), request);
+    }
+
     @Transactional
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public InspectionResponseBatchResponse batch(UUID inspectionId, InspectionResponseBatchRequest request) {
@@ -192,6 +208,12 @@ public class InspectionResponseService implements InspectionResponseReader {
                         "The response id is already linked to another inspection item"
                 );
             }
+            if (request.baseVersion() != existing.getVersion()) {
+                throw new ConflictException(
+                        "INSPECTION_RESPONSE_VERSION_CONFLICT",
+                        "The response version is stale; reload the inspection before retrying"
+                );
+            }
             existing.update(answeredBy, value, request.observation(), request.answeredAtDevice(), answeredAtServer,
                     request.baseVersion());
             return responseRepository.saveAndFlush(existing);
@@ -231,9 +253,14 @@ public class InspectionResponseService implements InspectionResponseReader {
     }
 
     private void assertEditable(Inspection inspection) {
+        if (inspection.getStatus() == InspectionStatus.APPROVED) {
+            throw new BusinessRuleException(
+                    "INSPECTION_APPROVED_READ_ONLY",
+                    "Approved inspection data cannot be changed"
+            );
+        }
         if (inspection.getStatus() == InspectionStatus.SUBMITTED
                 || inspection.getStatus() == InspectionStatus.UNDER_REVIEW
-                || inspection.getStatus() == InspectionStatus.APPROVED
                 || inspection.getStatus() == InspectionStatus.CANCELED) {
             throw new BusinessRuleException(
                     "INSPECTION_RESPONSES_LOCKED",

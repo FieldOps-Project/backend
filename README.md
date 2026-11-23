@@ -115,6 +115,12 @@ O `POST` e idempotente pelo `id`/`nonConformityId`, exige titulo, descricao e se
 
 Nao ha endpoint de exclusao: depois do envio a nao conformidade permanece no historico e qualquer mudanca e auditada. A criacao gera `NON_CONFORMITY_CREATED`.
 
+### Push de sincronizacao offline
+
+O aplicativo envia operacoes acumuladas offline por `POST /api/v1/mobile/sync/push`. O lote aceita no maximo `APP_SYNC_MAX_OPERATIONS` operacoes (100 por padrao); acima disso a API responde `413 SYNC_BATCH_TOO_LARGE`. Cada operacao precisa de `operationId`, `entityType`, `entityId`, `operationType`, `baseVersion`, dependencias opcionais e um payload que identifique a `inspectionId`.
+
+As operacoes sao ordenadas por `dependsOn` e executadas em transacoes independentes. Respostas, evidencias e nao conformidades sao autorizadas contra o tecnico do token; uma inspeccao de outro tecnico ou `APPROVED` e rejeitada. A tabela `sync_processed_operations` registra o resultado para que reenvios retornem `ALREADY_APPLIED` sem repetir a escrita. A resposta sempre inclui `results`, `changes`, `nextCursor` e `serverTime`.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 
