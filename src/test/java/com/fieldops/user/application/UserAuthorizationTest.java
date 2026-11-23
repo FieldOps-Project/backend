@@ -36,6 +36,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -210,6 +211,35 @@ class UserAuthorizationTest {
                         .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"completedAtDevice\":\"2026-11-23T10:48:00Z\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void administratorGetsForbiddenFromInspectionResponseEndpoints() throws Exception {
+        UUID inspectionId = UUID.randomUUID();
+        UUID responseId = UUID.randomUUID();
+        String payload = "{\"id\":\"" + responseId
+                + "\",\"inspectionItemId\":\"" + UUID.randomUUID()
+                + "\",\"valueBoolean\":true,\"answeredAtDevice\":\"2026-11-23T10:02:00Z\",\"baseVersion\":0}";
+
+        mockMvc.perform(get("/api/v1/inspections/{id}/responses", inspectionId)
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+
+        mockMvc.perform(put("/api/v1/inspections/{inspectionId}/responses/{responseId}", inspectionId, responseId)
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+
+        mockMvc.perform(post("/api/v1/inspections/{id}/responses:batch", inspectionId)
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"responses\":[" + payload + "]}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
     }

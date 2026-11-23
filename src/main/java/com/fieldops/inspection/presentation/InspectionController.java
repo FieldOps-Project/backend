@@ -8,6 +8,7 @@ import com.fieldops.inspection.application.InspectionListService;
 import com.fieldops.inspection.application.InspectionSchedulingService;
 import com.fieldops.inspection.application.InspectionTransitionResult;
 import com.fieldops.inspection.application.InspectionTransitionService;
+import com.fieldops.inspection.application.InspectionResponseService;
 import com.fieldops.inspection.domain.model.InspectionPriority;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.presentation.dto.AssignInspectionRequest;
@@ -17,6 +18,10 @@ import com.fieldops.inspection.presentation.dto.InspectionExecutionResponse;
 import com.fieldops.inspection.presentation.dto.InspectionResponse;
 import com.fieldops.inspection.presentation.dto.InspectionListResponse;
 import com.fieldops.inspection.presentation.dto.InspectionTransitionResponse;
+import com.fieldops.inspection.presentation.dto.InspectionResponseBatchRequest;
+import com.fieldops.inspection.presentation.dto.InspectionResponseBatchResponse;
+import com.fieldops.inspection.presentation.dto.InspectionResponseResponse;
+import com.fieldops.inspection.presentation.dto.SaveInspectionResponseRequest;
 import com.fieldops.inspection.presentation.dto.StartInspectionRequest;
 import com.fieldops.inspection.presentation.dto.SubmitInspectionRequest;
 import com.fieldops.inspection.presentation.dto.MobileInspectionResponse;
@@ -26,6 +31,7 @@ import com.fieldops.inspection.presentation.mapper.InspectionMapper;
 import com.fieldops.inspection.presentation.mapper.InspectionListMapper;
 import com.fieldops.inspection.presentation.mapper.InspectionMobileMapper;
 import com.fieldops.inspection.presentation.mapper.InspectionTransitionMapper;
+import com.fieldops.inspection.presentation.mapper.InspectionResponseMapper;
 import com.fieldops.shared.presentation.dto.ApiError;
 import com.fieldops.shared.presentation.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -66,6 +72,8 @@ public class InspectionController {
     private final InspectionMobileMapper inspectionMobileMapper;
     private final InspectionTransitionService transitionService;
     private final InspectionTransitionMapper transitionMapper;
+    private final ObjectProvider<InspectionResponseService> responseServiceProvider;
+    private final InspectionResponseMapper responseMapper;
 
     public InspectionController(
             InspectionSchedulingService schedulingService,
@@ -75,7 +83,9 @@ public class InspectionController {
             ObjectProvider<InspectionMobileService> inspectionMobileServiceProvider,
             InspectionMobileMapper inspectionMobileMapper,
             InspectionTransitionService transitionService,
-            InspectionTransitionMapper transitionMapper
+            InspectionTransitionMapper transitionMapper,
+            ObjectProvider<InspectionResponseService> responseServiceProvider,
+            InspectionResponseMapper responseMapper
     ) {
         this.schedulingService = schedulingService;
         this.inspectionMapper = inspectionMapper;
@@ -85,6 +95,8 @@ public class InspectionController {
         this.inspectionMobileMapper = inspectionMobileMapper;
         this.transitionService = transitionService;
         this.transitionMapper = transitionMapper;
+        this.responseServiceProvider = responseServiceProvider;
+        this.responseMapper = responseMapper;
     }
 
     @GetMapping("/inspections")
@@ -377,6 +389,91 @@ public class InspectionController {
     ) {
         InspectionTransitionResult result = transitionService.submit(id, request);
         return transitionMapper.toExecutionResponse(result.inspection(), result.previousStatus());
+    }
+
+    @GetMapping("/inspections/{inspectionId}/responses")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "List inspection responses",
+            description = "Returns the current typed response for each answered snapshot item.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Responses returned",
+                            content = @Content(schema = @Schema(implementation = InspectionResponseResponse.class))),
+                    @ApiResponse(responseCode = "403", description = "Access denied",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection is not assigned to this technician",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public List<InspectionResponseResponse> listResponses(@PathVariable UUID inspectionId) {
+        return responseService().findAll(inspectionId);
+    }
+
+    @PutMapping("/inspections/{inspectionId}/responses/{responseId}")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Create or update an inspection response",
+            description = "Upserts a typed response by the device-generated response id.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Response applied",
+                            content = @Content(schema = @Schema(implementation = InspectionResponseResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid request",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "403", description = "Access denied",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection not found",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "409", description = "Response conflicts with an existing item",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "422", description = "Response value does not match the snapshot type",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public InspectionResponseResponse upsertResponse(
+            @PathVariable UUID inspectionId,
+            @PathVariable UUID responseId,
+            @Valid @RequestBody SaveInspectionResponseRequest request
+    ) {
+        return responseService().upsert(inspectionId, responseId, request);
+    }
+
+    @PostMapping("/inspections/{inspectionId}/responses:batch")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Apply inspection responses in batch",
+            description = "Processes every response independently and returns an individual result for each item.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Batch processed",
+                            content = @Content(schema = @Schema(implementation = InspectionResponseBatchResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid batch envelope",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "403", description = "Access denied",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection not found",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "422", description = "Inspection responses are locked",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public InspectionResponseBatchResponse batchResponses(
+            @PathVariable UUID inspectionId,
+            @Valid @RequestBody InspectionResponseBatchRequest request
+    ) {
+        return responseService().batch(inspectionId, request);
+    }
+
+    private InspectionResponseService responseService() {
+        InspectionResponseService service = responseServiceProvider.getIfAvailable();
+        if (service == null) {
+            throw new IllegalStateException("Inspection response persistence is not available");
+        }
+        return service;
     }
 
     @PostMapping("/inspections/{id}/assign")

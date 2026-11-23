@@ -4,6 +4,9 @@ import com.fieldops.inspection.domain.model.FieldPosition;
 import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.domain.model.InspectionItemSnapshot;
 import com.fieldops.inspection.domain.model.InspectionPriority;
+import com.fieldops.inspection.domain.model.InspectionResponse;
+import com.fieldops.inspection.domain.model.InspectionResponseConformity;
+import com.fieldops.inspection.domain.model.InspectionResponseValue;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.domain.model.InspectionTemplate;
 import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
@@ -75,6 +78,9 @@ class InspectionPersistenceTest {
 
     @Autowired
     private InspectionItemSnapshotRepository snapshotRepository;
+
+    @Autowired
+    private InspectionResponseRepository responseRepository;
 
     private UUID technicianId;
     private UUID supervisorId;
@@ -177,6 +183,44 @@ class InspectionPersistenceTest {
         assertThat(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(
                 inspection.getId(), anotherTechnicianId
         )).isEmpty();
+    }
+
+    @Test
+    void persistsTypedResponseAndPreventsTwoCurrentResponsesForOneItem() {
+        Inspection inspection = inspectionRepository.saveAndFlush(newInspection(null));
+        InspectionItemSnapshot snapshot = snapshotRepository.findByInspectionIdOrderBySectionOrderAscItemOrderAsc(
+                inspection.getId()
+        ).get(0);
+        UUID responseId = UUID.randomUUID();
+
+        InspectionResponse saved = responseRepository.saveAndFlush(InspectionResponse.create(
+                responseId,
+                inspection.getId(),
+                snapshot.getId(),
+                technicianId,
+                new InspectionResponseValue(null, null, null, null, null,
+                        InspectionResponseConformity.CONFORMING),
+                null,
+                Instant.parse("2026-08-01T13:12:30Z"),
+                Instant.parse("2026-08-01T16:12:30Z"),
+                0
+        ));
+
+        assertThat(responseRepository.findById(responseId).orElseThrow().getConformity())
+                .isEqualTo(InspectionResponseConformity.CONFORMING);
+        assertThat(saved.getAnsweredAtServer()).isEqualTo(Instant.parse("2026-08-01T16:12:30Z"));
+
+        assertThatThrownBy(() -> responseRepository.saveAndFlush(InspectionResponse.create(
+                UUID.randomUUID(),
+                inspection.getId(),
+                snapshot.getId(),
+                technicianId,
+                new InspectionResponseValue("duplicada", null, null, null, null, null),
+                null,
+                Instant.parse("2026-08-01T13:13:30Z"),
+                Instant.parse("2026-08-01T16:13:30Z"),
+                0
+        ))).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

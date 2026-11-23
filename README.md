@@ -74,6 +74,18 @@ POST /api/v1/inspections/{id}/submit
 
 Cada request envia somente o horario registrado no dispositivo e, opcionalmente, a posicao capturada. O horario de recebimento e gerado pelo servidor; qualquer campo de horario de servidor enviado pelo cliente e ignorado. `submit` repete no servidor a validacao de itens obrigatorios, observacao e evidencia e responde `422 INSPECTION_REQUIRED_ITEMS_MISSING` com os itens pendentes. A transicao gera auditoria e bloqueia o estado em `SUBMITTED`.
 
+### Respostas do checklist
+
+O tecnico consulta e sincroniza as respostas do snapshot por:
+
+```text
+GET  /api/v1/inspections/{inspectionId}/responses
+PUT  /api/v1/inspections/{inspectionId}/responses/{responseId}
+POST /api/v1/inspections/{inspectionId}/responses:batch
+```
+
+Cada resposta usa somente o campo tipado correspondente ao `responseType` congelado no snapshot. O servidor grava os horarios do dispositivo e do recebimento, atribui `answeredBy` ao tecnico autenticado e rejeita itens de outra inspecao. O `PUT` e idempotente pelo id gerado no dispositivo; o batch devolve `APPLIED` ou `REJECTED` por item sem abortar os demais. Respostas ficam bloqueadas depois de `SUBMITTED`, `UNDER_REVIEW` ou `APPROVED`.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 

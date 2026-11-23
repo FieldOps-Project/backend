@@ -80,8 +80,8 @@
                 "$ref": "#/components/schemas/LoginRequest"
               },
               "example": {
-                "password": "senha-informada-pelo-usuario",
-                "email": "tecnico@fieldops.local"
+                "email": "tecnico@fieldops.local",
+                "password": "senha-informada-pelo-usuario"
               }
             }
           },
@@ -965,6 +965,113 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/inspections/{inspectionId}/responses/{responseId}": {
+      "put": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Create or update an inspection response",
+        "description": "Upserts a typed response by the device-generated response id.",
+        "operationId": "upsertResponse",
+        "parameters": [
+          {
+            "name": "inspectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "responseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveInspectionResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Response applied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Response conflicts with an existing item",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Response value does not match the snapshot type",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/inspections/{id}": {
@@ -2313,6 +2420,94 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/inspections/{inspectionId}/responses:batch": {
+      "post": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Apply inspection responses in batch",
+        "description": "Processes every response independently and returns an individual result for each item.",
+        "operationId": "batchResponses",
+        "parameters": [
+          {
+            "name": "inspectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectionResponseBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Batch processed",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponseBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid batch envelope",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Inspection responses are locked",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/inspections/{id}/submit": {
@@ -3962,6 +4157,64 @@
         ]
       }
     },
+    "/api/v1/inspections/{inspectionId}/responses": {
+      "get": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "List inspection responses",
+        "description": "Returns the current typed response for each answered snapshot item.",
+        "operationId": "listResponses",
+        "parameters": [
+          {
+            "name": "inspectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Responses returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponseResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection is not assigned to this technician",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/inspection-templates/{id}/versions": {
       "get": {
         "tags": [
@@ -4660,6 +4913,122 @@
             "example": 0
           }
         }
+      },
+      "InspectionResponseResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inspectionItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueText": {
+            "type": "string"
+          },
+          "valueNumber": {
+            "type": "number"
+          },
+          "valueBoolean": {
+            "type": "boolean"
+          },
+          "valueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "valueJson": {
+            "$ref": "#/components/schemas/JsonNode"
+          },
+          "conformity": {
+            "type": "string",
+            "enum": [
+              "NOT_APPLICABLE",
+              "CONFORMING",
+              "NON_CONFORMING"
+            ]
+          },
+          "observation": {
+            "type": "string"
+          },
+          "answeredAtDevice": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "answeredAtServer": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "answeredBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "JsonNode": {},
+      "SaveInspectionResponseRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inspectionItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueText": {
+            "type": "string"
+          },
+          "valueNumber": {
+            "type": "number"
+          },
+          "valueBoolean": {
+            "type": "boolean"
+          },
+          "valueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "valueJson": {
+            "$ref": "#/components/schemas/JsonNode"
+          },
+          "conformity": {
+            "type": "string",
+            "enum": [
+              "NOT_APPLICABLE",
+              "CONFORMING",
+              "NON_CONFORMING"
+            ]
+          },
+          "observation": {
+            "type": "string"
+          },
+          "answeredAtDevice": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "baseVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "answeredAtDevice",
+          "baseVersion",
+          "id",
+          "inspectionItemId"
+        ]
       },
       "InspectionItemSnapshotResponse": {
         "type": "object",
@@ -5700,6 +6069,63 @@
           "title"
         ]
       },
+      "InspectionResponseBatchItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "APPLIED",
+              "REJECTED"
+            ]
+          },
+          "response": {
+            "$ref": "#/components/schemas/InspectionResponseResponse"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "fieldErrors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "InspectionResponseBatchResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionResponseBatchItemResponse"
+            }
+          }
+        }
+      },
+      "InspectionResponseBatchRequest": {
+        "type": "object",
+        "properties": {
+          "responses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaveInspectionResponseRequest"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "responses"
+        ]
+      },
       "InspectionExecutionResponse": {
         "type": "object",
         "description": "Inspection transition with device/server timestamps.",
@@ -6587,7 +7013,6 @@
           }
         }
       },
-      "JsonNode": {},
       "MobileClientResponse": {
         "type": "object",
         "properties": {
