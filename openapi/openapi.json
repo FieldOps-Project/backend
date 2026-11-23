@@ -243,24 +243,157 @@
         "tags": [
           "Inspections"
         ],
-        "summary": "List inspections for dashboard",
+        "summary": "List inspections for the administrative dashboard",
+        "description": "Lists inspections with filters, bounded pagination, scope enforcement and derived overdue status.",
         "operationId": "list",
         "parameters": [
           {
             "name": "page",
             "in": "query",
             "description": "Zero-based page number",
+            "required": false,
             "schema": {
               "type": "integer",
               "format": "int32",
               "default": 0,
               "minimum": 0
             }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "ASSIGNED",
+                "IN_PROGRESS",
+                "SUBMITTED",
+                "UNDER_REVIEW",
+                "APPROVED",
+                "REJECTED",
+                "CANCELED"
+              ]
+            }
+          },
+          {
+            "name": "technicianId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "supervisorId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "siteId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "equipmentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LOW",
+                "MEDIUM",
+                "HIGH",
+                "CRITICAL"
+              ]
+            }
+          },
+          {
+            "name": "scheduledFrom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "scheduledTo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "overdue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "scheduledFor,asc"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Inspection list returned",
+            "description": "Paginated inspection list returned",
             "content": {
               "application/json": {
                 "schema": {
@@ -271,13 +404,10 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/InspectionSummaryResponse"
-                      }
+                      "$ref": "#/components/schemas/PageResponseInspectionListResponse"
                     },
                     {
-                      "$ref": "#/components/schemas/InspectionSummaryResponse"
+                      "$ref": "#/components/schemas/InspectionListResponse"
                     }
                   ]
                 }
@@ -296,10 +426,7 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/InspectionSummaryResponse"
-                      }
+                      "$ref": "#/components/schemas/PageResponseInspectionListResponse"
                     },
                     {
                       "$ref": "#/components/schemas/ApiError"
@@ -316,10 +443,24 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/InspectionSummaryResponse"
-                      }
+                      "$ref": "#/components/schemas/PageResponseInspectionListResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter or sort",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PageResponseInspectionListResponse"
                     },
                     {
                       "$ref": "#/components/schemas/ApiError"
@@ -5936,6 +6077,129 @@
             "type": "string",
             "format": "date-time",
             "example": "2026-09-14T10:00:00Z"
+          }
+        }
+      },
+      "InspectionListResponse": {
+        "type": "object",
+        "description": "Administrative inspection row with scope, progress and overdue status.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientName": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "equipmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "equipmentName": {
+            "type": "string"
+          },
+          "technicianId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "technicianName": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
+          },
+          "scheduledFor": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "answeredItems": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of checklist items already answered."
+          },
+          "applicableItems": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of applicable checklist items in the frozen snapshot."
+          },
+          "progress": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Answered items as a percentage from 0 to 100.",
+            "example": 0
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "overdue": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageResponseInspectionListResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionListResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
           }
         }
       },

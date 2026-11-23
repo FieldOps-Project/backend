@@ -10,6 +10,7 @@ import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
 import com.fieldops.inspection.domain.model.ResponseType;
 import com.fieldops.inspection.domain.model.TemplateItem;
 import com.fieldops.inspection.domain.model.TemplateSection;
+import com.fieldops.inspection.application.InspectionListQuery;
 import com.fieldops.shared.infrastructure.config.JpaAuditingConfig;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,8 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -36,6 +39,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -294,6 +298,44 @@ class InspectionPersistenceTest {
                 inspection.getId()
         )).isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("immutable");
+    }
+
+    @Test
+    void administrativeSpecificationScopesSupervisorsAndAggregatesSnapshotCounts() {
+        Instant now = Instant.now();
+        Inspection overdue = newInspection(null);
+        ReflectionTestUtils.setField(overdue, "scheduledFor", now.minus(1, ChronoUnit.HOURS));
+        overdue = inspectionRepository.saveAndFlush(overdue);
+
+        Inspection approved = newInspection(null);
+        ReflectionTestUtils.setField(approved, "scheduledFor", now.minus(2, ChronoUnit.HOURS));
+        ReflectionTestUtils.setField(approved, "status", InspectionStatus.APPROVED);
+        ReflectionTestUtils.setField(approved, "approvedAt", now);
+        approved = inspectionRepository.saveAndFlush(approved);
+
+        UUID otherSupervisorId = insertUser("SUPERVISOR");
+        Inspection outsideScope = Inspection.create(
+                published, clientId, siteId, null, technicianId, otherSupervisorId, supervisorId,
+                "Inspecao fora do escopo", null, InspectionPriority.HIGH, now.minus(3, ChronoUnit.HOURS)
+        );
+        outsideScope = inspectionRepository.saveAndFlush(outsideScope);
+
+        InspectionListQuery query = new InspectionListQuery(
+                null, null, null, null, null, null, null, null,
+                null, null, true, 0, 20, "scheduledFor,asc"
+        );
+        Page<Inspection> result = inspectionRepository.findAll(
+                InspectionSpecifications.withFilters(query, supervisorId, now),
+                PageRequest.of(0, 20)
+        );
+
+        assertThat(result.getContent()).extracting(Inspection::getId)
+                .containsExactly(overdue.getId());
+        assertThat(result.getContent()).extracting(Inspection::getId)
+                .doesNotContain(approved.getId(), outsideScope.getId());
+        assertThat(snapshotRepository.countApplicableItems(Set.of(overdue.getId())))
+                .singleElement()
+                .satisfies(progress -> assertThat(progress.getApplicableItems()).isEqualTo(3));
     }
 
     @Test
