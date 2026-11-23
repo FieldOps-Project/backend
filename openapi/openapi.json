@@ -80,8 +80,8 @@
                 "$ref": "#/components/schemas/LoginRequest"
               },
               "example": {
-                "password": "senha-informada-pelo-usuario",
-                "email": "tecnico@fieldops.local"
+                "email": "tecnico@fieldops.local",
+                "password": "senha-informada-pelo-usuario"
               }
             }
           },
@@ -547,6 +547,7 @@
           "Inspections"
         ],
         "summary": "List inspections for mobile technicians",
+        "description": "Returns only inspections assigned to the authenticated technician and supports incremental updates.",
         "operationId": "listMobile",
         "parameters": [
           {
@@ -558,6 +559,33 @@
               "format": "int32",
               "default": 0,
               "minimum": 0
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "ASSIGNED",
+                "IN_PROGRESS",
+                "SUBMITTED",
+                "UNDER_REVIEW",
+                "APPROVED",
+                "REJECTED",
+                "CANCELED"
+              ]
+            }
+          },
+          {
+            "name": "updatedSince",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
             }
           }
         ],
@@ -576,11 +604,11 @@
                     {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                        "$ref": "#/components/schemas/MobileInspectionSummaryResponse"
                       }
                     },
                     {
-                      "$ref": "#/components/schemas/InspectionSummaryResponse"
+                      "$ref": "#/components/schemas/MobileInspectionSummaryResponse"
                     }
                   ]
                 }
@@ -601,7 +629,7 @@
                     {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                        "$ref": "#/components/schemas/MobileInspectionSummaryResponse"
                       }
                     },
                     {
@@ -621,7 +649,7 @@
                     {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/InspectionSummaryResponse"
+                        "$ref": "#/components/schemas/MobileInspectionSummaryResponse"
                       }
                     },
                     {
@@ -3640,6 +3668,101 @@
         }
       }
     },
+    "/api/v1/mobile/inspections/{id}": {
+      "get": {
+        "tags": [
+          "Inspections"
+        ],
+        "summary": "Get a mobile inspection execution payload",
+        "description": "Returns the assigned inspection, immutable checklist snapshot and related resources in one response.",
+        "operationId": "findMobile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mobile inspection returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileInspectionResponse"
+                },
+                "example": {
+                  "id": "3d8dc050-54f4-4d3b-9e5d-5fdb29ae3ed5",
+                  "title": "Inspecao de Extintor - Planta Sul",
+                  "status": "ASSIGNED",
+                  "priority": "HIGH",
+                  "scheduledFor": "2026-08-12T13:00:00Z",
+                  "version": 3,
+                  "client": {
+                    "id": "6b1c6c9d-62e7-4ddf-a0d7-1dbd1b9b775a",
+                    "name": "Industria ABC"
+                  },
+                  "site": {
+                    "id": "95e33a13-cb27-443e-b2f6-90d3e8a0b9c9",
+                    "name": "Fabrica Sorocaba",
+                    "addressLine": "Rua A, 10",
+                    "latitude": -23.5,
+                    "longitude": -47.4
+                  },
+                  "equipment": {
+                    "id": "26d8c59a-11c2-4f12-b69c-6fb5d26e6cf4",
+                    "name": "Gerador GD-001",
+                    "qrCode": "QR-001"
+                  },
+                  "items": [],
+                  "responses": [],
+                  "review": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inspection not assigned to this technician",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/inspection-templates/{id}/versions": {
       "get": {
         "tags": [
@@ -6056,27 +6179,303 @@
           }
         }
       },
-      "InspectionSummaryResponse": {
+      "MobileInspectionSummaryResponse": {
         "type": "object",
-        "description": "Inspection summary data used by dashboard and mobile lists.",
+        "description": "Inspection summary scoped to the authenticated technician.",
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid",
-            "example": "3d8dc050-54f4-4d3b-9e5d-5fdb29ae3ed5"
+            "format": "uuid"
           },
           "title": {
-            "type": "string",
-            "example": "Inspecao de Extintor - Planta Sul"
+            "type": "string"
           },
           "status": {
             "type": "string",
-            "example": "IN_PROGRESS"
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
           },
-          "scheduledAt": {
+          "priority": {
             "type": "string",
-            "format": "date-time",
-            "example": "2026-09-14T10:00:00Z"
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "scheduledFor": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientName": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "equipmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "equipmentName": {
+            "type": "string"
+          }
+        }
+      },
+      "JsonNode": {},
+      "MobileClientResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "MobileEquipmentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "qrCode": {
+            "type": "string"
+          },
+          "assetNumber": {
+            "type": "string"
+          },
+          "serialNumber": {
+            "type": "string"
+          }
+        }
+      },
+      "MobileInspectionAnswerResponse": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonNode"
+          },
+          "observation": {
+            "type": "string"
+          },
+          "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "MobileInspectionItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sectionTitle": {
+            "type": "string"
+          },
+          "sectionDescription": {
+            "type": "string"
+          },
+          "sectionOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemCode": {
+            "type": "string"
+          },
+          "itemTitle": {
+            "type": "string"
+          },
+          "itemDescription": {
+            "type": "string"
+          },
+          "responseType": {
+            "type": "string",
+            "enum": [
+              "TEXT_SHORT",
+              "TEXT_LONG",
+              "NUMBER",
+              "BOOLEAN",
+              "CONFORMITY",
+              "SINGLE_CHOICE",
+              "DATE"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/JsonNode"
+          },
+          "options": {
+            "$ref": "#/components/schemas/JsonNode"
+          },
+          "itemOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "MobileInspectionResponse": {
+        "type": "object",
+        "description": "Complete inspection payload scoped to the authenticated technician.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "scheduledFor": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "client": {
+            "$ref": "#/components/schemas/MobileClientResponse"
+          },
+          "site": {
+            "$ref": "#/components/schemas/MobileSiteResponse"
+          },
+          "equipment": {
+            "$ref": "#/components/schemas/MobileEquipmentResponse"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MobileInspectionItemResponse"
+            }
+          },
+          "responses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MobileInspectionAnswerResponse"
+            }
+          },
+          "review": {
+            "$ref": "#/components/schemas/MobileInspectionReviewResponse"
+          }
+        }
+      },
+      "MobileInspectionReviewResponse": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ASSIGNED",
+              "IN_PROGRESS",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "CANCELED"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "itemsToCorrect": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "MobileSiteResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "addressLine": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
           }
         }
       },

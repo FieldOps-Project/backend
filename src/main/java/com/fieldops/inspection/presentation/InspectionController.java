@@ -1,6 +1,8 @@
 package com.fieldops.inspection.presentation;
 
 import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
+import com.fieldops.inspection.application.InspectionMobileQuery;
+import com.fieldops.inspection.application.InspectionMobileService;
 import com.fieldops.inspection.application.InspectionListQuery;
 import com.fieldops.inspection.application.InspectionListService;
 import com.fieldops.inspection.application.InspectionSchedulingService;
@@ -13,11 +15,13 @@ import com.fieldops.inspection.presentation.dto.CancelInspectionRequest;
 import com.fieldops.inspection.presentation.dto.CreateInspectionRequest;
 import com.fieldops.inspection.presentation.dto.InspectionResponse;
 import com.fieldops.inspection.presentation.dto.InspectionListResponse;
-import com.fieldops.inspection.presentation.dto.InspectionSummaryResponse;
 import com.fieldops.inspection.presentation.dto.InspectionTransitionResponse;
+import com.fieldops.inspection.presentation.dto.MobileInspectionResponse;
+import com.fieldops.inspection.presentation.dto.MobileInspectionSummaryResponse;
 import com.fieldops.inspection.presentation.dto.UpdateInspectionRequest;
 import com.fieldops.inspection.presentation.mapper.InspectionMapper;
 import com.fieldops.inspection.presentation.mapper.InspectionListMapper;
+import com.fieldops.inspection.presentation.mapper.InspectionMobileMapper;
 import com.fieldops.inspection.presentation.mapper.InspectionTransitionMapper;
 import com.fieldops.shared.presentation.dto.ApiError;
 import com.fieldops.shared.presentation.dto.PageResponse;
@@ -43,7 +47,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,6 +59,8 @@ public class InspectionController {
     private final InspectionMapper inspectionMapper;
     private final ObjectProvider<InspectionListService> inspectionListServiceProvider;
     private final InspectionListMapper inspectionListMapper;
+    private final ObjectProvider<InspectionMobileService> inspectionMobileServiceProvider;
+    private final InspectionMobileMapper inspectionMobileMapper;
     private final InspectionTransitionService transitionService;
     private final InspectionTransitionMapper transitionMapper;
 
@@ -64,6 +69,8 @@ public class InspectionController {
             InspectionMapper inspectionMapper,
             ObjectProvider<InspectionListService> inspectionListServiceProvider,
             InspectionListMapper inspectionListMapper,
+            ObjectProvider<InspectionMobileService> inspectionMobileServiceProvider,
+            InspectionMobileMapper inspectionMobileMapper,
             InspectionTransitionService transitionService,
             InspectionTransitionMapper transitionMapper
     ) {
@@ -71,6 +78,8 @@ public class InspectionController {
         this.inspectionMapper = inspectionMapper;
         this.inspectionListServiceProvider = inspectionListServiceProvider;
         this.inspectionListMapper = inspectionListMapper;
+        this.inspectionMobileServiceProvider = inspectionMobileServiceProvider;
+        this.inspectionMobileMapper = inspectionMobileMapper;
         this.transitionService = transitionService;
         this.transitionMapper = transitionMapper;
     }
@@ -168,20 +177,73 @@ public class InspectionController {
 
     @GetMapping("/mobile/inspections")
     @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
             summary = "List inspections for mobile technicians",
+            description = "Returns only inspections assigned to the authenticated technician and supports incremental updates.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Mobile inspection list returned",
-                            content = @Content(schema = @Schema(implementation = InspectionSummaryResponse.class))),
+                            content = @Content(schema = @Schema(implementation = MobileInspectionSummaryResponse.class))),
                     @ApiResponse(responseCode = "401", description = "Missing or invalid token",
                             content = @Content(schema = @Schema(implementation = ApiError.class))),
                     @ApiResponse(responseCode = "403", description = "Access denied",
                             content = @Content(schema = @Schema(implementation = ApiError.class)))
             }
     )
-    public List<InspectionSummaryResponse> listMobile() {
-        return mockInspectionList();
+    public List<MobileInspectionSummaryResponse> listMobile(
+            @RequestParam(required = false) InspectionStatus status,
+            @RequestParam(required = false) Instant updatedSince
+    ) {
+        return inspectionMobileService().findAll(new InspectionMobileQuery(status, updatedSince)).stream()
+                .map(inspectionMobileMapper::toSummary)
+                .toList();
+    }
+
+    @GetMapping("/mobile/inspections/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Get a mobile inspection execution payload",
+            description = "Returns the assigned inspection, immutable checklist snapshot and related resources in one response.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Mobile inspection returned",
+                            content = @Content(schema = @Schema(implementation = MobileInspectionResponse.class),
+                                    examples = @ExampleObject(value = """
+                                            {
+                                              "id": "3d8dc050-54f4-4d3b-9e5d-5fdb29ae3ed5",
+                                              "title": "Inspecao de Extintor - Planta Sul",
+                                              "status": "ASSIGNED",
+                                              "priority": "HIGH",
+                                              "scheduledFor": "2026-08-12T13:00:00Z",
+                                              "version": 3,
+                                              "client": {"id": "6b1c6c9d-62e7-4ddf-a0d7-1dbd1b9b775a", "name": "Industria ABC"},
+                                              "site": {"id": "95e33a13-cb27-443e-b2f6-90d3e8a0b9c9", "name": "Fabrica Sorocaba", "addressLine": "Rua A, 10", "latitude": -23.5, "longitude": -47.4},
+                                              "equipment": {"id": "26d8c59a-11c2-4f12-b69c-6fb5d26e6cf4", "name": "Gerador GD-001", "qrCode": "QR-001"},
+                                              "items": [],
+                                              "responses": [],
+                                              "review": null
+                                            }
+                                            """))),
+                    @ApiResponse(responseCode = "401", description = "Missing or invalid token",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "403", description = "Access denied",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection not assigned to this technician",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public MobileInspectionResponse findMobile(@PathVariable UUID id) {
+        return inspectionMobileMapper.toResponse(inspectionMobileService().findById(id));
+    }
+
+    private InspectionMobileService inspectionMobileService() {
+        InspectionMobileService service = inspectionMobileServiceProvider.getIfAvailable();
+        if (service == null) {
+            throw new IllegalStateException("Mobile inspection persistence is not available");
+        }
+        return service;
     }
 
     @PostMapping("/inspections")
@@ -298,12 +360,4 @@ public class InspectionController {
         return transitionMapper.toResponse(result.inspection(), result.previousStatus());
     }
 
-    private List<InspectionSummaryResponse> mockInspectionList() {
-        return List.of(new InspectionSummaryResponse(
-                UUID.fromString("3d8dc050-54f4-4d3b-9e5d-5fdb29ae3ed5"),
-                "Inspecao de Extintor - Planta Sul",
-                "IN_PROGRESS",
-                OffsetDateTime.parse("2026-09-14T10:00:00Z")
-        ));
-    }
 }

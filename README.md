@@ -57,6 +57,12 @@ Somente `ADMIN` e `SUPERVISOR` acessam a listagem. O administrador consulta todo
 
 Cada linha traz os identificadores e nomes de cliente, local, equipamento e tecnico, alem de prioridade, estado, data prevista, ultima atualizacao, itens aplicaveis, itens respondidos, percentual de progresso e atraso. A contagem de itens do snapshot e feita em agregacao e os relacionamentos sao carregados em lote para evitar N+1; a contagem de respostas sera preenchida pelo modelo de execucao da inspecao.
 
+### Endpoints mobile
+
+O aplicativo usa `GET /api/v1/mobile/inspections?status=&updatedSince=` para sincronizar a lista atribuida ao tecnico autenticado e `GET /api/v1/mobile/inspections/{id}` para baixar o payload completo de uma inspecao. O servidor ignora qualquer escopo enviado pelo cliente: a consulta sempre usa o `technicianId` do token, e uma inspecao atribuida a outro tecnico responde `404`.
+
+O detalhe inclui a versao da inspecao, cliente, local, equipamento, snapshot ordenado por secao e item, respostas existentes e informacoes de revisao. `updatedSince` filtra por `updated_at` para permitir sincronizacao incremental antes do cursor completo. O payload nao inclui listas de outros clientes, locais, equipamentos ou tecnicos.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 
