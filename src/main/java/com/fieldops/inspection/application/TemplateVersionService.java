@@ -176,8 +176,14 @@ public class TemplateVersionService {
     @Transactional(readOnly = true)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_SCHEDULE)
     public InspectionTemplateVersion findVersionForScheduling(UUID versionId) {
-        InspectionTemplateVersion version = requirePublished(versionId);
-        if (!version.isActiveForNewInspections() || version.getTemplate().getStatus() != TemplateStatus.ACTIVE) {
+        InspectionTemplateVersion version = versionRepository.findById(versionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "TEMPLATE_VERSION_NOT_FOUND",
+                        "Published template version with id " + versionId + " not found"
+                ));
+        if (version.isDraft()
+                || !version.isActiveForNewInspections()
+                || version.getTemplate().getStatus() != TemplateStatus.ACTIVE) {
             throw new BusinessRuleException(
                     "TEMPLATE_VERSION_UNAVAILABLE",
                     "This template version is not available for new inspections"

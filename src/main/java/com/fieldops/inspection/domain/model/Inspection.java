@@ -57,7 +57,7 @@ public class Inspection {
     @Column(name = "equipment_id")
     private UUID equipmentId;
 
-    @Column(name = "technician_id", nullable = false)
+    @Column(name = "technician_id")
     private UUID technicianId;
 
     @Column(name = "supervisor_id")
@@ -146,9 +146,9 @@ public class Inspection {
     }
 
     /**
-     * Creates an inspection assigned to a technician and freezes the checklist
-     * of the published version as item snapshots (RN-021). Link validation
-     * (site of the client, active technician...) belongs to the scheduling use case.
+     * Creates an inspection and freezes the checklist of the published version
+     * as item snapshots (RN-021). Link validation (site of the client, active
+     * technician...) belongs to the scheduling use case.
      */
     public static Inspection create(
             InspectionTemplateVersion publishedVersion,
@@ -172,14 +172,14 @@ public class Inspection {
         inspection.clientId = Objects.requireNonNull(clientId, "clientId must not be null");
         inspection.siteId = Objects.requireNonNull(siteId, "siteId must not be null");
         inspection.equipmentId = equipmentId;
-        inspection.technicianId = Objects.requireNonNull(technicianId, "technicianId must not be null");
+        inspection.technicianId = technicianId;
         inspection.supervisorId = supervisorId;
         inspection.createdBy = Objects.requireNonNull(createdBy, "createdBy must not be null");
         inspection.title = requireText(title, "title");
         inspection.instructions = normalizeOptional(instructions);
         inspection.priority = priority == null ? InspectionPriority.MEDIUM : priority;
         inspection.scheduledFor = Objects.requireNonNull(scheduledFor, "scheduledFor must not be null");
-        inspection.status = InspectionStatus.ASSIGNED;
+        inspection.status = technicianId == null ? InspectionStatus.DRAFT : InspectionStatus.ASSIGNED;
 
         publishedVersion.getSections().stream()
                 .sorted(Comparator.comparingInt(TemplateSection::getDisplayOrder))
@@ -189,6 +189,32 @@ public class Inspection {
                                 InspectionItemSnapshot.copyOf(inspection, section, item)
                         )));
         return inspection;
+    }
+
+    public void updatePlanning(
+            UUID clientId,
+            UUID siteId,
+            UUID equipmentId,
+            UUID technicianId,
+            UUID supervisorId,
+            String title,
+            String instructions,
+            InspectionPriority priority,
+            Instant scheduledFor
+    ) {
+        if (status != InspectionStatus.DRAFT && status != InspectionStatus.ASSIGNED) {
+            throw new IllegalStateException("only draft or assigned inspections can be edited");
+        }
+        this.clientId = Objects.requireNonNull(clientId, "clientId must not be null");
+        this.siteId = Objects.requireNonNull(siteId, "siteId must not be null");
+        this.equipmentId = equipmentId;
+        this.technicianId = technicianId;
+        this.supervisorId = supervisorId;
+        this.title = requireText(title, "title");
+        this.instructions = normalizeOptional(instructions);
+        this.priority = priority == null ? InspectionPriority.MEDIUM : priority;
+        this.scheduledFor = Objects.requireNonNull(scheduledFor, "scheduledFor must not be null");
+        this.status = technicianId == null ? InspectionStatus.DRAFT : InspectionStatus.ASSIGNED;
     }
 
     // ── Field position (app#19) ──────────────────────────────
