@@ -75,7 +75,7 @@ public class InspectionEvidenceService {
     @Transactional
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public InspectionEvidence upload(UUID inspectionId, EvidenceMetadataRequest metadata, MultipartFile file) {
-        loadForTechnician(inspectionId);
+        assertEditable(loadForTechnician(inspectionId));
         InspectionEvidence existing = evidenceRepository.findById(metadata.id()).orElse(null);
         if (existing != null) {
             if (!existing.getInspectionId().equals(inspectionId)) {
@@ -107,6 +107,47 @@ public class InspectionEvidenceService {
         }
         auditEventService.recordEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), null, auditState(saved));
         return saved;
+    }
+
+    @Transactional
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public InspectionEvidence uploadFromSynchronization(
+            UUID inspectionId,
+            EvidenceMetadataRequest metadata,
+            byte[] content,
+            String contentType
+    ) {
+        assertEditable(loadForTechnician(inspectionId));
+        InspectionEvidence existing = evidenceRepository.findById(metadata.id()).orElse(null);
+        if (existing != null) {
+            if (!existing.getInspectionId().equals(inspectionId)) {
+                throw new ConflictException("EVIDENCE_ID_REUSED", "The evidence id is already linked to another inspection");
+            }
+            return existing;
+        }
+
+        validateResponseLink(inspectionId, metadata.responseId());
+        validateNonConformityLink(inspectionId, metadata.nonConformityId());
+        validateCoordinates(metadata);
+        EvidenceFileValidator.ValidatedEvidenceFile validated = fileValidator.validate(content, contentType, maxSizeBytes);
+        UUID actor = currentUserId();
+        Instant now = Instant.now(clock);
+        String storageKey = "inspections/" + inspectionId + "/" + metadata.id() + "." + validated.extension();
+        evidenceStorage.store(storageKey, validated.content());
+        InspectionEvidence evidence = InspectionEvidence.create(
+                metadata.id(), inspectionId, metadata.responseId(), metadata.nonConformityId(), metadata.type(), storageKey,
+                validated.mimeType(), validated.content().length, checksum(validated.content()), metadata.description(),
+                metadata.latitude(), metadata.longitude(), metadata.accuracyMeters(), metadata.capturedAtDevice(),
+                now, now, actor
+        );
+        try {
+            InspectionEvidence saved = evidenceRepository.saveAndFlush(evidence);
+            auditEventService.recordEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), null, auditState(saved));
+            return saved;
+        } catch (RuntimeException exception) {
+            evidenceStorage.delete(storageKey);
+            throw exception;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -150,6 +191,15 @@ public class InspectionEvidenceService {
     private Inspection loadForTechnician(UUID inspectionId) {
         return inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, currentUserId())
                 .orElseThrow(() -> ResourceNotFoundException.of("Inspection", inspectionId));
+    }
+
+    private void assertEditable(Inspection inspection) {
+        if (inspection.getStatus() == InspectionStatus.APPROVED) {
+            throw new BusinessRuleException(
+                    "INSPECTION_APPROVED_READ_ONLY",
+                    "Approved inspection data cannot be changed"
+            );
+        }
     }
 
     private Inspection loadForReadableUser(UUID inspectionId) {

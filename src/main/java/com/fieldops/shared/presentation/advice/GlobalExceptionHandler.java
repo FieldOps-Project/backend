@@ -97,9 +97,12 @@ public class GlobalExceptionHandler {
         String code = ex instanceof PayloadTooLargeException payload
                 ? payload.getCode()
                 : "EVIDENCE_TOO_LARGE";
+        String message = "SYNC_BATCH_TOO_LARGE".equals(code)
+                ? "The synchronization batch exceeds the configured operation limit"
+                : "The uploaded evidence is too large";
         ApiError body = buildError(HttpStatus.PAYLOAD_TOO_LARGE, code,
-                "The uploaded evidence is too large", request);
-        log.warn("Evidence payload too large on {} {}", request.getMethod(), request.getRequestURI());
+                message, request);
+        log.warn("Payload too large on {} {}: {}", request.getMethod(), request.getRequestURI(), code);
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body);
     }
 

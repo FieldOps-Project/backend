@@ -27,6 +27,19 @@ public class EvidenceFileValidator {
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to read evidence upload", exception);
         }
+        return validate(content, contentType, maxSizeBytes);
+    }
+
+    public ValidatedEvidenceFile validate(byte[] content, String contentType, long maxSizeBytes) {
+        if (content == null || content.length == 0) {
+            throw unsupported("Evidence file must not be empty");
+        }
+        if (content.length > maxSizeBytes) {
+            throw new PayloadTooLargeException("EVIDENCE_TOO_LARGE", "The evidence exceeds the configured size limit");
+        }
+        if (!"image/jpeg".equalsIgnoreCase(contentType) && !"image/png".equalsIgnoreCase(contentType)) {
+            throw unsupported("Only JPEG and PNG evidence files are supported");
+        }
         if (content.length > maxSizeBytes || !matchesSignature(content, contentType)) {
             throw unsupported("The evidence content does not match its declared image format");
         }
