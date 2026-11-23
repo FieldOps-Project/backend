@@ -63,6 +63,17 @@ O aplicativo usa `GET /api/v1/mobile/inspections?status=&updatedSince=` para sin
 
 O detalhe inclui a versao da inspecao, cliente, local, equipamento, snapshot ordenado por secao e item, respostas existentes e informacoes de revisao. `updatedSince` filtra por `updated_at` para permitir sincronizacao incremental antes do cursor completo. O payload nao inclui listas de outros clientes, locais, equipamentos ou tecnicos.
 
+### Execucao da inspecao
+
+O tecnico responsavel inicia e envia a inspecao por:
+
+```text
+POST /api/v1/inspections/{id}/start
+POST /api/v1/inspections/{id}/submit
+```
+
+Cada request envia somente o horario registrado no dispositivo e, opcionalmente, a posicao capturada. O horario de recebimento e gerado pelo servidor; qualquer campo de horario de servidor enviado pelo cliente e ignorado. `submit` repete no servidor a validacao de itens obrigatorios, observacao e evidencia e responde `422 INSPECTION_REQUIRED_ITEMS_MISSING` com os itens pendentes. A transicao gera auditoria e bloqueia o estado em `SUBMITTED`.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 

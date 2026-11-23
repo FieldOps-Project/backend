@@ -2,15 +2,20 @@ package com.fieldops.inspection.application;
 
 import com.fieldops.audit.application.AuditEventService;
 import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
+import com.fieldops.inspection.domain.model.InspectionItemSnapshot;
 import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.domain.model.InspectionTemplate;
 import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
 import com.fieldops.inspection.domain.service.InspectionStateMachine;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.presentation.dto.InspectionLocationRequest;
+import com.fieldops.inspection.presentation.dto.StartInspectionRequest;
+import com.fieldops.inspection.presentation.dto.SubmitInspectionRequest;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.ConflictException;
 import com.fieldops.shared.domain.exception.InvalidRequestException;
+import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.user.domain.model.User;
 import com.fieldops.user.domain.model.UserRole;
 import com.fieldops.user.domain.model.UserStatus;
@@ -27,6 +32,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
+import java.time.Clock;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -187,6 +195,174 @@ class InspectionTransitionServiceTest {
         assertThatThrownBy(() -> transitionService.cancel(inspectionId, "  "))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasFieldOrPropertyWithValue("code", "INSPECTION_CANCEL_REASON_REQUIRED");
+    }
+
+    @Test
+    void startsOnlyTheAssignedTechniciansInspectionAndRecordsBothTimesAndPosition() {
+        authenticateTechnician();
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+        when(inspectionRepository.saveAndFlush(any(Inspection.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        Instant deviceTime = Instant.parse("2026-11-23T10:02:00Z");
+        InspectionLocationRequest location = new InspectionLocationRequest(
+                new BigDecimal("-23.5"), new BigDecimal("-47.4"), new BigDecimal("12.5"),
+                Instant.parse("2026-11-23T10:02:03Z")
+        );
+        transitionService = transitionService(inspectionIdValue -> List.of());
+
+        InspectionTransitionResult result = transitionService.start(
+                inspectionId, new StartInspectionRequest(deviceTime, location)
+        );
+
+        assertThat(result.previousStatus()).isEqualTo(InspectionStatus.ASSIGNED);
+        assertThat(result.inspection().getStatus()).isEqualTo(InspectionStatus.IN_PROGRESS);
+        assertThat(result.inspection().getStartedAtDevice()).isEqualTo(deviceTime);
+        assertThat(result.inspection().getStartedAtServer()).isEqualTo(Instant.parse("2026-11-23T12:00:00Z"));
+        assertThat(result.inspection().getStartPosition().getAccuracyMeters()).isEqualByComparingTo("12.5");
+        verify(auditEventService).recordEvent(
+                eq("INSPECTION_STARTED"), eq("INSPECTION"), eq(inspectionId),
+                eq("status=ASSIGNED;technicianId=" + technicianId
+                        + ";startedAtDevice=null;startedAtServer=null;completedAtDevice=null;submittedAtServer=null"),
+                org.mockito.ArgumentMatchers.contains("status=IN_PROGRESS")
+        );
+    }
+
+    @Test
+    void startReturnsNotFoundWhenInspectionBelongsToAnotherTechnician() {
+        authenticateTechnician();
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.empty());
+        transitionService = transitionService(inspectionIdValue -> List.of());
+
+        assertThatThrownBy(() -> transitionService.start(
+                inspectionId, new StartInspectionRequest(Instant.now(), null)
+        )).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void startRejectsCanceledInspectionWithConflict() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.CANCELED);
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+        transitionService = transitionService(inspectionIdValue -> List.of());
+
+        assertThatThrownBy(() -> transitionService.start(
+                inspectionId, new StartInspectionRequest(Instant.now(), null)
+        )).isInstanceOf(ConflictException.class)
+                .hasFieldOrPropertyWithValue("code", "INSPECTION_INVALID_TRANSITION");
+        verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
+    }
+
+    @Test
+    void submitListsRequiredItemsAndDoesNotChangeTheInspection() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.IN_PROGRESS);
+        InspectionItemSnapshot item = snapshot(true, null);
+        ReflectionTestUtils.setField(inspection, "itemSnapshots", new java.util.ArrayList<>(List.of(item)));
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+        transitionService = transitionService(inspectionIdValue -> List.of());
+
+        assertThatThrownBy(() -> transitionService.submit(
+                inspectionId, new SubmitInspectionRequest(Instant.now(), null)
+        )).isInstanceOf(BusinessRuleException.class)
+                .hasFieldOrPropertyWithValue("code", "INSPECTION_REQUIRED_ITEMS_MISSING")
+                .satisfies(error -> assertThat(((BusinessRuleException) error).getViolations())
+                        .singleElement().extracting("message")
+                        .isEqualTo("A response is required"));
+
+        verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
+        verify(auditEventService, never()).recordEvent(eq("INSPECTION_SUBMITTED"), any(), any(), any(), any());
+    }
+
+    @Test
+    void submitRequiresObservationAndEvidenceForNonConformingResponses() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.IN_PROGRESS);
+        InspectionItemSnapshot item = snapshot(false,
+                "{\"observationRequiredOnFailure\":true,\"evidenceRequiredOnFailure\":true}");
+        ReflectionTestUtils.setField(inspection, "itemSnapshots", new java.util.ArrayList<>(List.of(item)));
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+        transitionService = transitionService(inspectionIdValue -> List.of(
+                new InspectionExecutionAnswer(item.getId(), true, "NON_CONFORMING", null, false)
+        ));
+
+        assertThatThrownBy(() -> transitionService.submit(
+                inspectionId, new SubmitInspectionRequest(Instant.now(), null)
+        )).isInstanceOf(BusinessRuleException.class)
+                .hasFieldOrPropertyWithValue("code", "INSPECTION_REQUIRED_ITEMS_MISSING");
+        verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
+    }
+
+    @Test
+    void submitChangesStateRecordsServerTimeAndAuditsAValidResponse() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.IN_PROGRESS);
+        InspectionItemSnapshot item = snapshot(true, null);
+        ReflectionTestUtils.setField(inspection, "itemSnapshots", new java.util.ArrayList<>(List.of(item)));
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+        when(inspectionRepository.saveAndFlush(any(Inspection.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        transitionService = transitionService(inspectionIdValue -> List.of(
+                new InspectionExecutionAnswer(item.getId(), true, "CONFORMING", null, false)
+        ));
+
+        Instant deviceTime = Instant.parse("2026-11-23T10:48:00Z");
+        InspectionTransitionResult result = transitionService.submit(
+                inspectionId,
+                new SubmitInspectionRequest(deviceTime, new InspectionLocationRequest(
+                        new BigDecimal("-23.5"), new BigDecimal("-47.4"), null,
+                        Instant.parse("2026-11-23T10:48:03Z")
+                ))
+        );
+
+        assertThat(result.previousStatus()).isEqualTo(InspectionStatus.IN_PROGRESS);
+        assertThat(result.inspection().getStatus()).isEqualTo(InspectionStatus.SUBMITTED);
+        assertThat(result.inspection().getCompletedAtDevice()).isEqualTo(deviceTime);
+        assertThat(result.inspection().getSubmittedAtServer()).isEqualTo(Instant.parse("2026-11-23T12:00:00Z"));
+        assertThat(result.inspection().getCompletionPosition()).isNotNull();
+        verify(auditEventService).recordEvent(
+                eq("INSPECTION_SUBMITTED"), eq("INSPECTION"), eq(inspectionId),
+                org.mockito.ArgumentMatchers.contains("status=IN_PROGRESS"),
+                org.mockito.ArgumentMatchers.contains("status=SUBMITTED")
+        );
+        verify(auditEventService).recordEvent(
+                eq("INSPECTION_COMPLETED"), eq("INSPECTION"), eq(inspectionId),
+                org.mockito.ArgumentMatchers.contains("status=IN_PROGRESS"),
+                org.mockito.ArgumentMatchers.contains("status=SUBMITTED")
+        );
+    }
+
+    private void authenticateTechnician() {
+        authentication = new TestingAuthenticationToken("technician", "password");
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        when(authenticatedUserResolver.requireUserId(authentication)).thenReturn(technicianId);
+    }
+
+    private InspectionTransitionService transitionService(InspectionResponseReader responseReader) {
+        return new InspectionTransitionService(
+                inspectionRepository,
+                userRepository,
+                new InspectionStateMachine(),
+                auditEventService,
+                authenticatedUserResolver,
+                responseReader,
+                Clock.fixed(Instant.parse("2026-11-23T12:00:00Z"), java.time.ZoneOffset.UTC)
+        );
+    }
+
+    private InspectionItemSnapshot snapshot(boolean required, String rules) {
+        InspectionItemSnapshot item = org.mockito.Mockito.mock(InspectionItemSnapshot.class);
+        when(item.getId()).thenReturn(UUID.randomUUID());
+        when(item.isRequired()).thenReturn(required);
+        if (rules != null) {
+            when(item.getRulesJson()).thenReturn(rules);
+        }
+        return item;
     }
 
     private User user(UUID id, UserRole role, UserStatus status) {

@@ -194,6 +194,27 @@ class UserAuthorizationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void administratorGetsForbiddenFromTechnicianExecutionEndpoints() throws Exception {
+        UUID inspectionId = UUID.randomUUID();
+        String payload = "{\"startedAtDevice\":\"2026-11-23T10:02:00Z\"}";
+
+        mockMvc.perform(post("/api/v1/inspections/{id}/start", inspectionId)
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+
+        mockMvc.perform(post("/api/v1/inspections/{id}/submit", inspectionId)
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"completedAtDevice\":\"2026-11-23T10:48:00Z\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
     @WithMockUser(roles = "SUPERVISOR")
     void supervisorGetsForbiddenFromUserManagementEndpoint() throws Exception {
         mockMvc.perform(post("/users")

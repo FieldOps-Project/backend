@@ -13,9 +13,12 @@ import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.presentation.dto.AssignInspectionRequest;
 import com.fieldops.inspection.presentation.dto.CancelInspectionRequest;
 import com.fieldops.inspection.presentation.dto.CreateInspectionRequest;
+import com.fieldops.inspection.presentation.dto.InspectionExecutionResponse;
 import com.fieldops.inspection.presentation.dto.InspectionResponse;
 import com.fieldops.inspection.presentation.dto.InspectionListResponse;
 import com.fieldops.inspection.presentation.dto.InspectionTransitionResponse;
+import com.fieldops.inspection.presentation.dto.StartInspectionRequest;
+import com.fieldops.inspection.presentation.dto.SubmitInspectionRequest;
 import com.fieldops.inspection.presentation.dto.MobileInspectionResponse;
 import com.fieldops.inspection.presentation.dto.MobileInspectionSummaryResponse;
 import com.fieldops.inspection.presentation.dto.UpdateInspectionRequest;
@@ -306,6 +309,74 @@ public class InspectionController {
             @Valid @RequestBody UpdateInspectionRequest request
     ) {
         return inspectionMapper.toResponse(schedulingService.update(id, request));
+    }
+
+    @PostMapping("/inspections/{id}/start")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Start an inspection",
+            description = "Starts an inspection assigned to the authenticated technician and records device/server timestamps.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Inspection started",
+                            content = @Content(schema = @Schema(implementation = InspectionExecutionResponse.class),
+                                    examples = @ExampleObject(value = """
+                                            {
+                                              "id": "3d8dc050-54f4-4d3b-9e5d-5fdb29ae3ed5",
+                                              "previousStatus": "ASSIGNED",
+                                              "status": "IN_PROGRESS",
+                                              "startedAtDevice": "2026-08-01T13:02:00Z",
+                                              "startedAtServer": "2026-08-01T16:02:04Z",
+                                              "startPosition": {"latitude": -23.5, "longitude": -47.4, "accuracy": 12.5, "capturedAt": "2026-08-01T13:02:03Z"}
+                                            }
+                                            """))),
+                    @ApiResponse(responseCode = "400", description = "Invalid request",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "403", description = "Access denied",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection is not assigned to this technician",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "409", description = "Invalid inspection transition",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public InspectionExecutionResponse start(
+            @PathVariable UUID id,
+            @Valid @RequestBody StartInspectionRequest request
+    ) {
+        InspectionTransitionResult result = transitionService.start(id, request);
+        return transitionMapper.toExecutionResponse(result.inspection(), result.previousStatus());
+    }
+
+    @PostMapping("/inspections/{id}/submit")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Submit an inspection",
+            description = "Validates all required snapshot items server-side, then records completion and server timestamps.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Inspection submitted",
+                            content = @Content(schema = @Schema(implementation = InspectionExecutionResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid request",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "403", description = "Access denied",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection is not assigned to this technician",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "409", description = "Invalid inspection transition",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "422", description = "Required responses, observations or evidence are missing",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public InspectionExecutionResponse submit(
+            @PathVariable UUID id,
+            @Valid @RequestBody SubmitInspectionRequest request
+    ) {
+        InspectionTransitionResult result = transitionService.submit(id, request);
+        return transitionMapper.toExecutionResponse(result.inspection(), result.previousStatus());
     }
 
     @PostMapping("/inspections/{id}/assign")

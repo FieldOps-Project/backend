@@ -332,6 +332,41 @@ class InspectionPersistenceTest {
     }
 
     @Test
+    void executionMethodsPersistTheServerGeneratedPairsAndPositions() {
+        Inspection inspection = inspectionRepository.saveAndFlush(newInspection(null));
+        Instant startedAtDevice = Instant.parse("2026-10-23T10:02:00Z");
+        Instant startedAtServer = Instant.parse("2026-10-23T16:02:00Z");
+        inspection.start(
+                startedAtDevice,
+                startedAtServer,
+                FieldPosition.of(
+                        new BigDecimal("-23.5"), new BigDecimal("-47.4"), null,
+                        Instant.parse("2026-10-23T10:02:03Z")
+                )
+        );
+        inspectionRepository.saveAndFlush(inspection);
+        entityManager.clear();
+
+        Inspection started = inspectionRepository.findById(inspection.getId()).orElseThrow();
+        assertThat(started.getStatus()).isEqualTo(InspectionStatus.IN_PROGRESS);
+        assertThat(started.getStartedAtDevice()).isEqualTo(startedAtDevice);
+        assertThat(started.getStartedAtServer()).isEqualTo(startedAtServer);
+        assertThat(started.getStartPosition()).isNotNull();
+
+        Instant completedAtDevice = Instant.parse("2026-10-23T10:48:00Z");
+        Instant submittedAtServer = Instant.parse("2026-10-23T16:48:00Z");
+        started.submit(completedAtDevice, submittedAtServer, null);
+        inspectionRepository.saveAndFlush(started);
+        entityManager.clear();
+
+        Inspection submitted = inspectionRepository.findById(inspection.getId()).orElseThrow();
+        assertThat(submitted.getStatus()).isEqualTo(InspectionStatus.SUBMITTED);
+        assertThat(submitted.getCompletedAtDevice()).isEqualTo(completedAtDevice);
+        assertThat(submitted.getSubmittedAtServer()).isEqualTo(submittedAtServer);
+        assertThat(submitted.getCompletionPosition()).isNull();
+    }
+
+    @Test
     void snapshotsCannotBeUpdated() {
         Inspection inspection = inspectionRepository.saveAndFlush(newInspection(null));
 
