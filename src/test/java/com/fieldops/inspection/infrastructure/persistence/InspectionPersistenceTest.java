@@ -11,6 +11,8 @@ import com.fieldops.inspection.domain.model.InspectionEvidence;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.domain.model.InspectionTemplate;
 import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
+import com.fieldops.inspection.domain.model.NonConformity;
+import com.fieldops.inspection.domain.model.NonConformitySeverity;
 import com.fieldops.inspection.domain.model.ResponseType;
 import com.fieldops.inspection.domain.model.TemplateItem;
 import com.fieldops.inspection.domain.model.TemplateSection;
@@ -85,6 +87,9 @@ class InspectionPersistenceTest {
 
     @Autowired
     private InspectionEvidenceRepository evidenceRepository;
+
+    @Autowired
+    private NonConformityRepository nonConformityRepository;
 
     private UUID technicianId;
     private UUID supervisorId;
@@ -260,6 +265,45 @@ class InspectionPersistenceTest {
         evidenceRepository.saveAndFlush(evidence);
 
         assertThat(evidenceRepository.findById(evidenceId).orElseThrow().isDeleted()).isTrue();
+    }
+
+    @Test
+    void persistsNonConformityWithOfflineIdAndLinksEvidence() {
+        Inspection inspection = inspectionRepository.saveAndFlush(newInspection(null));
+        InspectionItemSnapshot snapshot = snapshotRepository.findByInspectionIdOrderBySectionOrderAscItemOrderAsc(
+                inspection.getId()
+        ).get(0);
+        UUID nonConformityId = UUID.randomUUID();
+
+        NonConformity nonConformity = nonConformityRepository.saveAndFlush(NonConformity.create(
+                nonConformityId,
+                inspection.getId(),
+                snapshot.getId(),
+                null,
+                "Lacre rompido",
+                "O lacre foi encontrado rompido.",
+                NonConformitySeverity.CRITICAL,
+                technicianId,
+                Instant.parse("2026-08-01T13:12:30Z"),
+                Instant.parse("2026-08-01T16:12:30Z")
+        ));
+
+        assertThat(nonConformityRepository.findByIdAndInspectionId(nonConformityId, inspection.getId()))
+                .containsSame(nonConformity);
+        assertThat(nonConformityRepository.search(
+                Set.of(inspection.getId()), null, NonConformitySeverity.CRITICAL, null, clientId,
+                PageRequest.of(0, 20)
+        ).getContent()).extracting(NonConformity::getId).containsExactly(nonConformityId);
+
+        InspectionEvidence evidence = evidenceRepository.saveAndFlush(InspectionEvidence.create(
+                UUID.randomUUID(), inspection.getId(), null, nonConformityId, "PHOTO",
+                "inspections/" + inspection.getId() + "/critical.jpg", "image/jpeg", 4, "aabbccdd",
+                null, null, null, null, Instant.parse("2026-08-01T13:12:30Z"),
+                Instant.parse("2026-08-01T16:12:30Z"), Instant.parse("2026-08-01T16:12:30Z"), technicianId
+        ));
+
+        assertThat(evidenceRepository.existsByNonConformityIdAndDeletedAtIsNull(nonConformityId)).isTrue();
+        assertThat(evidence.getNonConformityId()).isEqualTo(nonConformityId);
     }
 
     @Test

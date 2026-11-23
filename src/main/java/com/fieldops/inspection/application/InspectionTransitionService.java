@@ -49,6 +49,7 @@ public class InspectionTransitionService {
     private final AuditEventService auditEventService;
     private final AuthenticatedUserResolver authenticatedUserResolver;
     private final InspectionResponseReader responseReader;
+    private final InspectionNonConformityReader nonConformityReader;
     private final Clock clock;
     private final ObjectMapper objectMapper;
 
@@ -56,6 +57,7 @@ public class InspectionTransitionService {
     public InspectionTransitionService(
             ObjectProvider<InspectionRepository> inspectionRepositoryProvider,
             ObjectProvider<InspectionResponseReader> responseReaderProvider,
+            ObjectProvider<InspectionNonConformityReader> nonConformityReaderProvider,
             UserRepository userRepository,
             InspectionStateMachine stateMachine,
             AuditEventService auditEventService,
@@ -69,6 +71,9 @@ public class InspectionTransitionService {
         this.authenticatedUserResolver = authenticatedUserResolver;
         InspectionResponseReader availableReader = responseReaderProvider.getIfAvailable();
         this.responseReader = availableReader == null ? inspectionId -> List.of() : availableReader;
+        InspectionNonConformityReader availableNonConformityReader = nonConformityReaderProvider.getIfAvailable();
+        this.nonConformityReader = availableNonConformityReader == null
+                ? inspectionId -> false : availableNonConformityReader;
         this.clock = Clock.systemUTC();
         this.objectMapper = new ObjectMapper();
     }
@@ -88,6 +93,7 @@ public class InspectionTransitionService {
                 auditEventService,
                 authenticatedUserResolver,
                 inspectionId -> List.of(),
+                inspectionId -> false,
                 Clock.systemUTC()
         );
     }
@@ -101,6 +107,28 @@ public class InspectionTransitionService {
             InspectionResponseReader responseReader,
             Clock clock
     ) {
+        this(
+                inspectionRepository,
+                userRepository,
+                stateMachine,
+                auditEventService,
+                authenticatedUserResolver,
+                responseReader,
+                inspectionId -> false,
+                clock
+        );
+    }
+
+    InspectionTransitionService(
+            InspectionRepository inspectionRepository,
+            UserRepository userRepository,
+            InspectionStateMachine stateMachine,
+            AuditEventService auditEventService,
+            AuthenticatedUserResolver authenticatedUserResolver,
+            InspectionResponseReader responseReader,
+            InspectionNonConformityReader nonConformityReader,
+            Clock clock
+    ) {
         this.inspectionRepositoryProvider = null;
         this.directInspectionRepository = inspectionRepository;
         this.userRepository = userRepository;
@@ -108,6 +136,7 @@ public class InspectionTransitionService {
         this.auditEventService = auditEventService;
         this.authenticatedUserResolver = authenticatedUserResolver;
         this.responseReader = responseReader;
+        this.nonConformityReader = nonConformityReader;
         this.clock = clock;
         this.objectMapper = new ObjectMapper();
     }
@@ -192,6 +221,13 @@ public class InspectionTransitionService {
         Inspection inspection = findForTechnician(inspectionId);
         stateMachine.assertTransitionValid(inspection.getStatus(), InspectionAction.SUBMIT);
         validateSubmission(inspection);
+        if (nonConformityReader.hasCriticalWithoutEvidence(inspection.getId())) {
+            throw new BusinessRuleException(
+                    "INSPECTION_CRITICAL_NON_CONFORMITY_EVIDENCE_MISSING",
+                    "Critical non-conformities require at least one active evidence before submission",
+                    List.of(new Violation("nonConformities", "Every CRITICAL non-conformity must have evidence"))
+            );
+        }
 
         String before = executionAuditState(inspection);
         InspectionStatus previousStatus = inspection.getStatus();
