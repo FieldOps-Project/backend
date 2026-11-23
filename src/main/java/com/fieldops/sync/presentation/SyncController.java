@@ -1,7 +1,9 @@
 package com.fieldops.sync.presentation;
 
 import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
+import com.fieldops.sync.application.SyncPullService;
 import com.fieldops.sync.application.SyncPushService;
+import com.fieldops.sync.presentation.dto.SyncPullResponse;
 import com.fieldops.sync.presentation.dto.SyncPushRequest;
 import com.fieldops.sync.presentation.dto.SyncPushResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,8 +17,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,9 +32,46 @@ import org.springframework.web.bind.annotation.RestController;
 public class SyncController {
 
     private final SyncPushService syncPushService;
+    private final SyncPullService syncPullService;
 
-    public SyncController(SyncPushService syncPushService) {
+    public SyncController(SyncPushService syncPushService, SyncPullService syncPullService) {
         this.syncPushService = syncPushService;
+        this.syncPullService = syncPullService;
+    }
+
+    @GetMapping("/pull")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @Operation(
+            summary = "Pull incremental mobile changes",
+            description = "Returns only changes belonging to the authenticated technician. The cursor is opaque and must be stored and sent back unchanged.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Changes returned",
+                            content = @io.swagger.v3.oas.annotations.media.Content(
+                                    schema = @Schema(implementation = SyncPullResponse.class),
+                                    examples = @ExampleObject(value = """
+                                            {
+                                              "changes": [{
+                                                "entityType": "INSPECTION",
+                                                "entityId": "62327a9a-ec19-46a2-89ae-b49086b657f9",
+                                                "changeType": "UPSERT",
+                                                "version": 4,
+                                                "payload": {"status": "ASSIGNED"}
+                                              }],
+                                              "nextCursor": "eyJ0cyI6IjIwMjYtMDgtMDFUMTQ6MTU6MDBaIiwiaWQiOiJ1dWlkIn0",
+                                              "hasMore": false,
+                                              "serverTime": "2026-08-01T14:15:00Z"
+                                            }
+                                            """))),
+                    @ApiResponse(responseCode = "400", description = "Invalid cursor or limit"),
+                    @ApiResponse(responseCode = "403", description = "Access denied")
+            }
+    )
+    public SyncPullResponse pull(
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "200") Integer limit
+    ) {
+        return syncPullService.pull(cursor, limit);
     }
 
     @PostMapping("/push")

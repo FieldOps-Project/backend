@@ -6,6 +6,7 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
@@ -66,6 +67,10 @@ public class InspectionEvidence {
 
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private Instant uploadedAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     @Column(name = "created_by", nullable = false, updatable = false)
     private UUID createdBy;
@@ -159,6 +164,7 @@ public class InspectionEvidence {
     public Instant getCapturedAtDevice() { return capturedAtDevice; }
     public Instant getServerReceivedAt() { return serverReceivedAt; }
     public Instant getUploadedAt() { return uploadedAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
     public UUID getCreatedBy() { return createdBy; }
     public Instant getDeletedAt() { return deletedAt; }
     public UUID getDeletedBy() { return deletedBy; }

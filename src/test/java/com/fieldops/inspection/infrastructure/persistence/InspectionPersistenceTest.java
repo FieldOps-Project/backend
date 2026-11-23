@@ -1,5 +1,6 @@
 package com.fieldops.inspection.infrastructure.persistence;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fieldops.inspection.domain.model.FieldPosition;
 import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.domain.model.InspectionItemSnapshot;
@@ -18,6 +19,8 @@ import com.fieldops.inspection.domain.model.TemplateItem;
 import com.fieldops.inspection.domain.model.TemplateSection;
 import com.fieldops.inspection.application.InspectionListQuery;
 import com.fieldops.shared.infrastructure.config.JpaAuditingConfig;
+import com.fieldops.sync.domain.model.SyncChange;
+import com.fieldops.sync.infrastructure.persistence.SyncChangeReader;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -192,6 +195,21 @@ class InspectionPersistenceTest {
         assertThat(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(
                 inspection.getId(), anotherTechnicianId
         )).isEmpty();
+    }
+
+    @Test
+    void syncPullReaderReturnsOnlyTheTechniciansInspectionGraph() {
+        Inspection inspection = inspectionRepository.saveAndFlush(newInspection(equipmentId));
+        SyncChangeReader reader = new SyncChangeReader(jdbc, new ObjectMapper());
+
+        List<SyncChange> changes = reader.findChanges(technicianId, null, 100);
+
+        assertThat(changes).extracting(SyncChange::entityType)
+                .contains("INSPECTION", "INSPECTION_SNAPSHOT", "CLIENT", "INSPECTION_SITE", "EQUIPMENT");
+        assertThat(changes).extracting(SyncChange::entityId)
+                .contains(inspection.getId(), clientId, siteId, equipmentId)
+                .doesNotContain(otherClientId, otherSiteId, otherEquipmentId);
+        assertThat(changes).allMatch(change -> change.payload().isObject());
     }
 
     @Test

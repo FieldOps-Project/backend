@@ -121,6 +121,19 @@ O aplicativo envia operacoes acumuladas offline por `POST /api/v1/mobile/sync/pu
 
 As operacoes sao ordenadas por `dependsOn` e executadas em transacoes independentes. Respostas, evidencias e nao conformidades sao autorizadas contra o tecnico do token; uma inspeccao de outro tecnico ou `APPROVED` e rejeitada. A tabela `sync_processed_operations` registra o resultado para que reenvios retornem `ALREADY_APPLIED` sem repetir a escrita. A resposta sempre inclui `results`, `changes`, `nextCursor` e `serverTime`.
 
+### Pull incremental
+
+O aplicativo baixa as alteracoes do tecnico autenticado por `GET /api/v1/mobile/sync/pull?cursor=&limit=200`.
+O cursor e uma string opaca gerada pelo servidor: o app deve apenas persistir o valor de `nextCursor` e
+devolve-lo na proxima chamada, sem interpretar ou montar seu conteudo. A ordenacao usa o par `(updated_at, id)`
+e o endpoint devolve `hasMore` quando ainda existem alteracoes no lote. No primeiro pull, omita `cursor`.
+
+O pull inclui inspecoes, snapshots, respostas, metadados de evidencias, nao conformidades e os clientes,
+locais e equipamentos relacionados. Cancelamentos e exclusoes de evidencia aparecem como `DELETE_LOGICAL`
+com o estado preservado no payload; nenhum registro e removido do resultado por estar cancelado.
+
+O escopo e aplicado pelo servidor usando o tecnico autenticado. O limite padrao e 200 e o maximo aceito e 1000.
+
 ## Contribuição
 Veja o [Guia de Contribuição](https://github.com/FieldOps-Project/docs/blob/main/CONTRIBUTING.md) para detalhes sobre fluxo de trabalho, padrões de commit e nomenclatura de branches.
 
