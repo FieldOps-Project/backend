@@ -1,5 +1,8 @@
 package com.fieldops.audit.application;
 
+import java.time.Instant;
+import org.slf4j.MDC;
+import com.fieldops.shared.infrastructure.filter.RequestIdFilter;
 import com.fieldops.audit.infrastructure.persistence.AuditEvent;
 import com.fieldops.audit.infrastructure.persistence.AuditEventRepository;
 import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
@@ -87,5 +90,40 @@ class AuditEventServiceTest {
         assertThat(event.getEntityId()).isEqualTo(versionId);
         assertThat(event.getBeforeValues()).isNull();
         assertThat(event.getAfterValues()).isEqualTo("{\"versionNumber\":1}");
+    }
+
+    @Test
+    void inspectionEventsCarryInspectionDeviceTimeAndCorrelationIds() {
+        UUID actorId = UUID.randomUUID();
+        UUID inspectionId = UUID.randomUUID();
+        UUID deviceId = UUID.randomUUID();
+        Instant deviceTime = Instant.parse("2026-11-20T10:00:00Z");
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                "jwt-principal",
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_TECHNICIAN"))
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        when(authenticatedUserResolver.requireUserId(authentication)).thenReturn(actorId);
+        MDC.put(RequestIdFilter.MDC_KEY, "req-123");
+        MDC.put(AuditEventService.DEVICE_ID_MDC_KEY, deviceId.toString());
+
+        try {
+            AuditEventService service = new AuditEventService(auditEventRepository, authenticatedUserResolver);
+            service.recordInspectionEvent(
+                    "INSPECTION_STARTED", "INSPECTION", inspectionId, inspectionId, deviceTime, "before", "after"
+            );
+        } finally {
+            MDC.clear();
+        }
+
+        ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditEventRepository).save(eventCaptor.capture());
+        AuditEvent event = eventCaptor.getValue();
+        assertThat(event.getInspectionId()).isEqualTo(inspectionId);
+        assertThat(event.getDeviceOccurredAt()).isEqualTo(deviceTime);
+        assertThat(event.getRequestId()).isEqualTo("req-123");
+        assertThat(event.getDeviceId()).isEqualTo(deviceId);
+        assertThat(event.getOccurredAt()).isNotNull();
     }
 }
