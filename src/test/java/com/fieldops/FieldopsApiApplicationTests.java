@@ -12,6 +12,7 @@ import com.fieldops.inspection.infrastructure.persistence.TemplateItemRepository
 import com.fieldops.inspection.infrastructure.persistence.TemplateSectionRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionItemSnapshotRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionReviewRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionResponseRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionEvidenceRepository;
 import com.fieldops.inspection.infrastructure.persistence.NonConformityRepository;
@@ -64,6 +65,9 @@ class FieldopsApiApplicationTests {
 
 	@MockitoBean
 	private InspectionRepository inspectionRepository;
+
+	@MockitoBean
+	private InspectionReviewRepository inspectionReviewRepository;
 
 	@MockitoBean
 	private InspectionItemSnapshotRepository inspectionItemSnapshotRepository;

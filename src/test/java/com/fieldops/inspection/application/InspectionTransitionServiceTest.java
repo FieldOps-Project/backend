@@ -179,6 +179,38 @@ class InspectionTransitionServiceTest {
     }
 
     @Test
+    void technicianExplicitlyReopensARejectedInspection() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.REJECTED);
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+        when(inspectionRepository.saveAndFlush(any(Inspection.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        InspectionTransitionResult result = transitionService.reopen(inspectionId);
+
+        assertThat(result.previousStatus()).isEqualTo(InspectionStatus.REJECTED);
+        assertThat(result.inspection().getStatus()).isEqualTo(InspectionStatus.IN_PROGRESS);
+        verify(auditEventService).recordEvent(
+                eq("INSPECTION_REOPENED"), eq("INSPECTION"), eq(inspectionId), any(), any()
+        );
+    }
+
+    @Test
+    void approvedInspectionCannotBeReopened() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.APPROVED);
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+
+        assertThatThrownBy(() -> transitionService.reopen(inspectionId))
+                .isInstanceOf(ConflictException.class)
+                .hasFieldOrPropertyWithValue("code", "INSPECTION_INVALID_TRANSITION");
+
+        verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
+    }
+
+    @Test
     void rejectsCancellationFromApprovedStateWithConflict() {
         ReflectionTestUtils.setField(inspection, "status", InspectionStatus.APPROVED);
         when(inspectionRepository.findById(inspectionId)).thenReturn(Optional.of(inspection));

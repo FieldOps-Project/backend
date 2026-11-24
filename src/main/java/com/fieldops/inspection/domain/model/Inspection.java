@@ -272,6 +272,11 @@ public class Inspection {
         this.status = InspectionStatus.REJECTED;
     }
 
+    /** The technician takes over the correction of a rejected inspection; earlier reviews stay untouched. */
+    public void reopen() {
+        this.status = InspectionStatus.IN_PROGRESS;
+    }
+
     // ── Getters ──────────────────────────────────────────────
 
     public UUID getId() {
