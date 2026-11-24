@@ -1,6 +1,6 @@
 package com.fieldops.sync.application;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
 import com.fieldops.shared.domain.exception.PayloadTooLargeException;
 import com.fieldops.sync.domain.model.SyncOperationResultStatus;
