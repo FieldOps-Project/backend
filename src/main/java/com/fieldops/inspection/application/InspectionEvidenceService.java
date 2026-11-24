@@ -189,7 +189,8 @@ public class InspectionEvidenceService {
                 now, null, currentUserId()
         );
         InspectionEvidence saved = evidenceRepository.saveAndFlush(evidence);
-        auditEventService.recordEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), null, auditState(saved));
+        auditEventService.recordInspectionEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), saved.getInspectionId(),
+                saved.getCapturedAtDevice(), null, auditState(saved));
         return saved;
     }
 
