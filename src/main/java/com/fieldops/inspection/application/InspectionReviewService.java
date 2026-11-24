@@ -97,10 +97,12 @@ public class InspectionReviewService {
         InspectionStatus previousStatus = inspection.getStatus();
         inspection.beginReview();
         Inspection saved = inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "REVIEW_STARTED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                null,
                 "status=" + previousStatus,
                 "status=" + saved.getStatus()
         );
@@ -120,10 +122,12 @@ public class InspectionReviewService {
         ));
         inspection.approve(reviewedAt);
         inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_APPROVED",
                 INSPECTION_ENTITY,
                 inspectionId,
+                inspectionId,
+                null,
                 "status=" + previousStatus,
                 auditState(inspection, review)
         );
@@ -155,10 +159,12 @@ public class InspectionReviewService {
         ));
         inspection.reject();
         inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_REJECTED",
                 INSPECTION_ENTITY,
                 inspectionId,
+                inspectionId,
+                null,
                 "status=" + previousStatus,
                 auditState(inspection, review)
         );

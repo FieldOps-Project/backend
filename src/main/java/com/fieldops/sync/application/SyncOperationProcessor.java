@@ -2,6 +2,7 @@ package com.fieldops.sync.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fieldops.audit.application.AuditEventService;
 import com.fieldops.inspection.application.InspectionEvidenceService;
 import com.fieldops.inspection.application.InspectionResponseService;
 import com.fieldops.inspection.application.NonConformityService;
@@ -17,6 +18,7 @@ import com.fieldops.sync.domain.model.SyncProcessedOperation;
 import com.fieldops.sync.infrastructure.persistence.SyncProcessedOperationRepository;
 import com.fieldops.sync.presentation.dto.SyncOperationRequest;
 import com.fieldops.sync.presentation.dto.SyncOperationResult;
+import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -69,6 +71,7 @@ public class SyncOperationProcessor {
             return alreadyApplied(existing);
         }
 
+        MDC.put(AuditEventService.DEVICE_ID_MDC_KEY, deviceId.toString());
         try {
             AppliedEntity applied = apply(operation);
             return persist(
@@ -90,6 +93,8 @@ public class SyncOperationProcessor {
                     deviceId, userId, operation, SyncOperationResultStatus.REJECTED,
                     null, "SYNC_OPERATION_FAILED", "The synchronization operation could not be applied"
             );
+        } finally {
+            MDC.remove(AuditEventService.DEVICE_ID_MDC_KEY);
         }
     }
 

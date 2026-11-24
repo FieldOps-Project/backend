@@ -244,8 +244,8 @@ public class InspectionResponseService implements InspectionResponseReader {
             existing.update(answeredBy, value, request.observation(), request.answeredAtDevice(), answeredAtServer,
                     request.baseVersion());
             InspectionResponse saved = responseRepository.saveAndFlush(existing);
-            auditEventService.recordEvent("RESPONSE_UPDATED", RESPONSE_ENTITY, saved.getId(), previousValue,
-                    auditValue(saved));
+            auditEventService.recordInspectionEvent("RESPONSE_UPDATED", RESPONSE_ENTITY, saved.getId(),
+                    saved.getInspectionId(), saved.getAnsweredAtDevice(), previousValue, auditValue(saved));
             return saved;
         }
         if (responseRepository.existsById(responseId)) {
@@ -261,7 +261,7 @@ public class InspectionResponseService implements InspectionResponseReader {
                     "The inspection already has a response for this item"
             );
         }
-        return responseRepository.saveAndFlush(InspectionResponse.create(
+        InspectionResponse created = responseRepository.saveAndFlush(InspectionResponse.create(
                 responseId,
                 inspection.getId(),
                 request.inspectionItemId(),
@@ -272,6 +272,9 @@ public class InspectionResponseService implements InspectionResponseReader {
                 answeredAtServer,
                 request.baseVersion()
         ));
+        auditEventService.recordInspectionEvent("RESPONSE_CREATED", RESPONSE_ENTITY, created.getId(),
+                created.getInspectionId(), created.getAnsweredAtDevice(), null, auditValue(created));
+        return created;
     }
 
     private Inspection loadInspection(UUID inspectionId) {

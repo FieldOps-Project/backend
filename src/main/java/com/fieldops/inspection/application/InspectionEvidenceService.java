@@ -105,7 +105,8 @@ public class InspectionEvidenceService {
             evidenceStorage.delete(storageKey);
             throw exception;
         }
-        auditEventService.recordEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), null, auditState(saved));
+        auditEventService.recordInspectionEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), saved.getInspectionId(),
+                saved.getCapturedAtDevice(), null, auditState(saved));
         return saved;
     }
 
@@ -142,7 +143,8 @@ public class InspectionEvidenceService {
         );
         try {
             InspectionEvidence saved = evidenceRepository.saveAndFlush(evidence);
-            auditEventService.recordEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), null, auditState(saved));
+            auditEventService.recordInspectionEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), saved.getInspectionId(),
+                saved.getCapturedAtDevice(), null, auditState(saved));
             return saved;
         } catch (RuntimeException exception) {
             evidenceStorage.delete(storageKey);
@@ -185,7 +187,8 @@ public class InspectionEvidenceService {
         evidence.remove(currentUserId(), Instant.now(clock));
         evidenceStorage.delete(evidence.getStorageKey());
         InspectionEvidence saved = evidenceRepository.saveAndFlush(evidence);
-        auditEventService.recordEvent("EVIDENCE_REMOVED", EVIDENCE_ENTITY, saved.getId(), before, auditState(saved));
+        auditEventService.recordInspectionEvent("EVIDENCE_REMOVED", EVIDENCE_ENTITY, saved.getId(), saved.getInspectionId(),
+                null, before, auditState(saved));
     }
 
     private Inspection loadForTechnician(UUID inspectionId) {

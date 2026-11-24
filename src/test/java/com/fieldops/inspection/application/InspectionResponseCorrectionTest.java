@@ -127,10 +127,12 @@ class InspectionResponseCorrectionTest {
 
         service.upsert(inspectionId, existing.getId(), request(existing.getId(), correctedItem, 0));
 
-        verify(auditEventService).recordEvent(
+        verify(auditEventService).recordInspectionEvent(
                 eq("RESPONSE_UPDATED"),
                 eq("INSPECTION_RESPONSE"),
                 eq(existing.getId()),
+                eq(inspectionId),
+                eq(DEVICE_TIME),
                 argThat(previous -> previous.contains("\"valueText\":\"valor antigo\"")),
                 argThat(current -> current.contains("\"valueText\":\"novo valor\""))
         );
@@ -147,6 +149,10 @@ class InspectionResponseCorrectionTest {
         service.upsert(inspectionId, responseId, request(responseId, lockedItem, 0));
 
         verify(responseRepository).saveAndFlush(any(InspectionResponse.class));
+        verify(auditEventService).recordInspectionEvent(
+                eq("RESPONSE_CREATED"), eq("INSPECTION_RESPONSE"), eq(responseId), eq(inspectionId),
+                eq(DEVICE_TIME), eq(null), argThat(current -> current.contains("\"valueText\":\"novo valor\""))
+        );
     }
 
     @Test

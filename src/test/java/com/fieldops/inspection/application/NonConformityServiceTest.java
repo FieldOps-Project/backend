@@ -91,10 +91,12 @@ class NonConformityServiceTest {
 
         assertThat(result.getId()).isEqualTo(id);
         assertThat(result.getSeverity()).isEqualTo(NonConformitySeverity.CRITICAL);
-        verify(auditEventService).recordEvent(
+        verify(auditEventService).recordInspectionEvent(
                 org.mockito.ArgumentMatchers.eq("NON_CONFORMITY_CREATED"),
                 org.mockito.ArgumentMatchers.eq("NON_CONFORMITY"),
                 org.mockito.ArgumentMatchers.eq(id),
+                any(),
+                any(),
                 org.mockito.ArgumentMatchers.isNull(),
                 any(String.class)
         );
@@ -114,7 +116,7 @@ class NonConformityServiceTest {
         assertThat(service.create(inspectionId, request(id, NonConformitySeverity.CRITICAL, null)))
                 .isSameAs(existing);
         verify(repository, never()).saveAndFlush(any(NonConformity.class));
-        verify(auditEventService, never()).recordEvent(any(), any(), any(), any(), any());
+        verify(auditEventService, never()).recordInspectionEvent(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
