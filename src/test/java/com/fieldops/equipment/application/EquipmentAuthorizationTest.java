@@ -16,6 +16,13 @@ import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVers
 import com.fieldops.inspection.infrastructure.persistence.TemplateItemRepository;
 import com.fieldops.inspection.infrastructure.persistence.TemplateSectionRepository;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionItemSnapshotRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionResponseRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionEvidenceRepository;
+import com.fieldops.inspection.infrastructure.persistence.NonConformityRepository;
+import com.fieldops.sync.infrastructure.persistence.SyncProcessedOperationRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,6 +91,27 @@ class EquipmentAuthorizationTest {
 
     @MockitoBean
     private TemplateItemRepository templateItemRepository;
+
+    @MockitoBean
+    private InspectionRepository inspectionRepository;
+
+    @MockitoBean
+    private InspectionItemSnapshotRepository inspectionItemSnapshotRepository;
+
+    @MockitoBean
+    private InspectionResponseRepository inspectionResponseRepository;
+
+    @MockitoBean
+    private InspectionEvidenceRepository inspectionEvidenceRepository;
+
+    @MockitoBean
+    private NonConformityRepository nonConformityRepository;
+
+    @MockitoBean
+    private SyncProcessedOperationRepository syncProcessedOperationRepository;
+
+    @MockitoBean
+    private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;

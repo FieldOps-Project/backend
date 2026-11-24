@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@ConditionalOnBean(SyncPushService.class)
 @RequestMapping("/api/v1/mobile/sync")
 @Tag(name = "Mobile synchronization", description = "Offline operation synchronization for technicians.")
 @SecurityRequirement(name = "bearerAuth")

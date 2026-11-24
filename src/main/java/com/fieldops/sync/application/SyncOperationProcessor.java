@@ -17,7 +17,6 @@ import com.fieldops.sync.domain.model.SyncProcessedOperation;
 import com.fieldops.sync.infrastructure.persistence.SyncProcessedOperationRepository;
 import com.fieldops.sync.presentation.dto.SyncOperationRequest;
 import com.fieldops.sync.presentation.dto.SyncOperationResult;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -29,7 +28,6 @@ import java.util.Base64;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(SyncProcessedOperationRepository.class)
 public class SyncOperationProcessor {
 
     private final SyncProcessedOperationRepository processedOperationRepository;

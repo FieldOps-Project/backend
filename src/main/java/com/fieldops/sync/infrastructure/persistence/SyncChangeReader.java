@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fieldops.sync.domain.model.SyncChange;
 import com.fieldops.sync.domain.model.SyncCursor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -17,7 +16,6 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-@ConditionalOnBean(JdbcTemplate.class)
 public class SyncChangeReader {
 
     private static final String BASE_QUERY = """
