@@ -38,13 +38,13 @@ public class InspectionEvidence {
     @Column(name = "storage_key", nullable = false, length = 300, unique = true, updatable = false)
     private String storageKey;
 
-    @Column(name = "mime_type", nullable = false, length = 64, updatable = false)
+    @Column(name = "mime_type", nullable = false, length = 64)
     private String mimeType;
 
-    @Column(name = "size_bytes", nullable = false, updatable = false)
+    @Column(name = "size_bytes", nullable = false)
     private long sizeBytes;
 
-    @Column(name = "checksum", nullable = false, length = 64, updatable = false)
+    @Column(name = "checksum", nullable = false, length = 64)
     private String checksum;
 
     @Column(name = "description", length = 2000)
@@ -65,7 +65,8 @@ public class InspectionEvidence {
     @Column(name = "server_received_at", nullable = false, updatable = false)
     private Instant serverReceivedAt;
 
-    @Column(name = "uploaded_at", nullable = false, updatable = false)
+    /** Null while the metadata was applied but the binary is still pending (RN-078). */
+    @Column(name = "uploaded_at")
     private Instant uploadedAt;
 
     @LastModifiedDate
@@ -123,7 +124,7 @@ public class InspectionEvidence {
         evidence.accuracyMeters = accuracyMeters;
         evidence.capturedAtDevice = Objects.requireNonNull(capturedAtDevice, "capturedAtDevice must not be null");
         evidence.serverReceivedAt = Objects.requireNonNull(serverReceivedAt, "serverReceivedAt must not be null");
-        evidence.uploadedAt = Objects.requireNonNull(uploadedAt, "uploadedAt must not be null");
+        evidence.uploadedAt = uploadedAt;
         evidence.createdBy = Objects.requireNonNull(createdBy, "createdBy must not be null");
         return evidence;
     }
@@ -135,6 +136,17 @@ public class InspectionEvidence {
 
     public boolean isDeleted() {
         return deletedAt != null;
+    }
+
+    public boolean isFileReceived() {
+        return uploadedAt != null;
+    }
+
+    /** Records the binary received for this evidence; a resend replaces the same storage key. */
+    public void receiveFile(long sizeBytes, String checksum, Instant uploadedAt) {
+        this.sizeBytes = sizeBytes;
+        this.checksum = requireText(checksum, "checksum");
+        this.uploadedAt = Objects.requireNonNull(uploadedAt, "uploadedAt must not be null");
     }
 
     private static String requireText(String value, String fieldName) {
