@@ -23,7 +23,6 @@ import com.fieldops.shared.presentation.dto.PaginationDefaults;
 import com.fieldops.user.domain.model.User;
 import com.fieldops.user.domain.model.UserRole;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -39,7 +38,6 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(NonConformityRepository.class)
 public class NonConformityService implements InspectionNonConformityReader {
 
     private static final String ENTITY = "NON_CONFORMITY";
@@ -118,7 +116,8 @@ public class NonConformityService implements InspectionNonConformityReader {
                 request.id(), inspectionId, request.inspectionItemId(), request.responseId(), request.title(),
                 request.description(), request.severity(), actor, request.createdAtDevice(), clock.instant()
         ));
-        auditEventService.recordEvent("NON_CONFORMITY_CREATED", ENTITY, saved.getId(), null, auditState(saved));
+        auditEventService.recordInspectionEvent("NON_CONFORMITY_CREATED", ENTITY, saved.getId(), saved.getInspectionId(),
+                saved.getCreatedAtDevice(), null, auditState(saved));
         return saved;
     }
 
@@ -129,7 +128,8 @@ public class NonConformityService implements InspectionNonConformityReader {
         String before = auditState(nonConformity);
         nonConformity.updateDetails(request.title(), request.description(), request.severity());
         NonConformity saved = repository.saveAndFlush(nonConformity);
-        auditEventService.recordEvent("NON_CONFORMITY_UPDATED", ENTITY, saved.getId(), before, auditState(saved));
+        auditEventService.recordInspectionEvent("NON_CONFORMITY_UPDATED", ENTITY, saved.getId(), saved.getInspectionId(),
+                null, before, auditState(saved));
         return saved;
     }
 

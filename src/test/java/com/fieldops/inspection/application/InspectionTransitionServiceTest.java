@@ -124,10 +124,12 @@ class InspectionTransitionServiceTest {
         assertThat(result.previousStatus()).isEqualTo(InspectionStatus.DRAFT);
         assertThat(result.inspection().getStatus()).isEqualTo(InspectionStatus.ASSIGNED);
         assertThat(result.inspection().getTechnicianId()).isEqualTo(technicianId);
-        verify(auditEventService).recordEvent(
+        verify(auditEventService).recordInspectionEvent(
                 eq("INSPECTION_ASSIGNED"),
                 eq("INSPECTION"),
                 eq(inspectionId),
+                eq(inspectionId),
+                eq(null),
                 eq("status=DRAFT;technicianId=null;canceledBy=null;canceledAt=null;canceledReason=null"),
                 eq("status=ASSIGNED;technicianId=" + technicianId + ";canceledBy=null;canceledAt=null;canceledReason=null")
         );
@@ -150,10 +152,12 @@ class InspectionTransitionServiceTest {
         assertThat(result.inspection().getCanceledBy()).isEqualTo(supervisorId);
         assertThat(result.inspection().getCanceledAt()).isNotNull();
         assertThat(result.inspection().getCanceledReason()).isEqualTo("Client site unavailable");
-        verify(auditEventService).recordEvent(
+        verify(auditEventService).recordInspectionEvent(
                 eq("INSPECTION_CANCELED"),
                 eq("INSPECTION"),
                 eq(inspectionId),
+                eq(inspectionId),
+                eq(null),
                 eq("status=ASSIGNED;technicianId=" + technicianId + ";canceledBy=null;canceledAt=null;canceledReason=null"),
                 org.mockito.ArgumentMatchers.argThat(value -> value.startsWith(
                         "status=CANCELED;technicianId=" + technicianId
@@ -175,7 +179,39 @@ class InspectionTransitionServiceTest {
                 .hasFieldOrPropertyWithValue("code", "TECHNICIAN_NOT_ELIGIBLE");
 
         verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
-        verify(auditEventService, never()).recordEvent(any(), any(), any(), any(), any());
+        verify(auditEventService, never()).recordInspectionEvent(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void technicianExplicitlyReopensARejectedInspection() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.REJECTED);
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+        when(inspectionRepository.saveAndFlush(any(Inspection.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        InspectionTransitionResult result = transitionService.reopen(inspectionId);
+
+        assertThat(result.previousStatus()).isEqualTo(InspectionStatus.REJECTED);
+        assertThat(result.inspection().getStatus()).isEqualTo(InspectionStatus.IN_PROGRESS);
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_REOPENED"), eq("INSPECTION"), eq(inspectionId), eq(inspectionId), eq(null), any(), any()
+        );
+    }
+
+    @Test
+    void approvedInspectionCannotBeReopened() {
+        authenticateTechnician();
+        ReflectionTestUtils.setField(inspection, "status", InspectionStatus.APPROVED);
+        when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
+                .thenReturn(Optional.of(inspection));
+
+        assertThatThrownBy(() -> transitionService.reopen(inspectionId))
+                .isInstanceOf(ConflictException.class)
+                .hasFieldOrPropertyWithValue("code", "INSPECTION_INVALID_TRANSITION");
+
+        verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
     }
 
     @Test
@@ -220,8 +256,9 @@ class InspectionTransitionServiceTest {
         assertThat(result.inspection().getStartedAtDevice()).isEqualTo(deviceTime);
         assertThat(result.inspection().getStartedAtServer()).isEqualTo(Instant.parse("2026-11-23T12:00:00Z"));
         assertThat(result.inspection().getStartPosition().getAccuracyMeters()).isEqualByComparingTo("12.5");
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_STARTED"), eq("INSPECTION"), eq(inspectionId),
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_STARTED"), eq("INSPECTION"), eq(inspectionId), eq(inspectionId),
+                eq(result.inspection().getStartedAtDevice()),
                 eq("status=ASSIGNED;technicianId=" + technicianId
                         + ";startedAtDevice=null;startedAtServer=null;completedAtDevice=null;submittedAtServer=null"),
                 org.mockito.ArgumentMatchers.contains("status=IN_PROGRESS")
@@ -274,7 +311,7 @@ class InspectionTransitionServiceTest {
                         .isEqualTo("A response is required"));
 
         verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
-        verify(auditEventService, never()).recordEvent(eq("INSPECTION_SUBMITTED"), any(), any(), any(), any());
+        verify(auditEventService, never()).recordInspectionEvent(eq("INSPECTION_SUBMITTED"), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -325,13 +362,15 @@ class InspectionTransitionServiceTest {
         assertThat(result.inspection().getCompletedAtDevice()).isEqualTo(deviceTime);
         assertThat(result.inspection().getSubmittedAtServer()).isEqualTo(Instant.parse("2026-11-23T12:00:00Z"));
         assertThat(result.inspection().getCompletionPosition()).isNotNull();
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_SUBMITTED"), eq("INSPECTION"), eq(inspectionId),
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_SUBMITTED"), eq("INSPECTION"), eq(inspectionId), eq(inspectionId),
+                eq(inspection.getCompletedAtDevice()),
                 org.mockito.ArgumentMatchers.contains("status=IN_PROGRESS"),
                 org.mockito.ArgumentMatchers.contains("status=SUBMITTED")
         );
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_COMPLETED"), eq("INSPECTION"), eq(inspectionId),
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_COMPLETED"), eq("INSPECTION"), eq(inspectionId), eq(inspectionId),
+                eq(inspection.getCompletedAtDevice()),
                 org.mockito.ArgumentMatchers.contains("status=IN_PROGRESS"),
                 org.mockito.ArgumentMatchers.contains("status=SUBMITTED")
         );

@@ -1,7 +1,7 @@
 package com.fieldops.sync.application;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.fieldops.inspection.domain.model.InspectionResponseConformity;
 
 import java.math.BigDecimal;

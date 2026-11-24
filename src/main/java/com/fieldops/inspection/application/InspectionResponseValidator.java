@@ -1,14 +1,14 @@
 package com.fieldops.inspection.application;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.inspection.domain.model.InspectionItemSnapshot;
 import com.fieldops.inspection.domain.model.InspectionResponseValue;
 import com.fieldops.inspection.domain.model.ResponseType;
 import com.fieldops.inspection.presentation.dto.SaveInspectionResponseRequest;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.Violation;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import tools.jackson.core.JacksonException;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -143,7 +143,7 @@ public class InspectionResponseValidator {
     private JsonNode parseJson(String value, String field) {
         try {
             return objectMapper.readTree(value);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new BusinessRuleException("INSPECTION_SNAPSHOT_INVALID",
                     "The inspection snapshot contains invalid " + field,
                     List.of(new Violation(field, "The snapshot JSON is invalid")));
@@ -171,7 +171,7 @@ public class InspectionResponseValidator {
     private String writeJson(JsonNode value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             invalid("valueJson", "The JSON value is invalid");
             return null;
         }

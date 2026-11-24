@@ -19,6 +19,7 @@ public final class AuthorizationPolicies {
     public static final String INSPECTIONS_NON_CONFORMITY_READ = "hasAnyRole('TECHNICIAN', 'SUPERVISOR')";
     public static final String INSPECTIONS_REVIEW = "hasRole('SUPERVISOR')";
     public static final String AUDIT_READ = "hasAnyRole('ADMIN', 'SUPERVISOR')";
+    public static final String INSPECTIONS_HISTORY_READ = "hasAnyRole('ADMIN', 'SUPERVISOR', 'TECHNICIAN')";
 
     private AuthorizationPolicies() {
     }

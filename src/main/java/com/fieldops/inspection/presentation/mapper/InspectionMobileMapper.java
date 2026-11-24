@@ -1,9 +1,9 @@
 package com.fieldops.inspection.presentation.mapper;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.NullNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.NullNode;
 import com.fieldops.inspection.application.InspectionMobileChecklistItem;
 import com.fieldops.inspection.application.InspectionMobileDetail;
 import com.fieldops.inspection.application.InspectionMobileAnswer;
@@ -86,7 +86,7 @@ public class InspectionMobileMapper {
         }
         try {
             return objectMapper.readTree(json);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new IllegalStateException("Stored inspection checklist JSON is invalid", ex);
         }
     }

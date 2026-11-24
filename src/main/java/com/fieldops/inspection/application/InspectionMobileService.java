@@ -10,13 +10,14 @@ import com.fieldops.equipment.domain.model.Equipment;
 import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
 import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.domain.model.InspectionItemSnapshot;
+import com.fieldops.inspection.domain.model.InspectionReviewDecision;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.infrastructure.persistence.InspectionMobileSpecifications;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionReviewRepository;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.user.domain.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,13 +35,13 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
-@ConditionalOnBean(InspectionRepository.class)
 public class InspectionMobileService {
 
     private final InspectionRepository inspectionRepository;
     private final ClientRepository clientRepository;
     private final InspectionSiteRepository siteRepository;
     private final EquipmentRepository equipmentRepository;
+    private final InspectionReviewRepository reviewRepository;
     private final AuthenticatedUserResolver authenticatedUserResolver;
 
     @Autowired
@@ -49,12 +50,14 @@ public class InspectionMobileService {
             ClientRepository clientRepository,
             InspectionSiteRepository siteRepository,
             EquipmentRepository equipmentRepository,
+            InspectionReviewRepository reviewRepository,
             AuthenticatedUserResolver authenticatedUserResolver
     ) {
         this.inspectionRepository = inspectionRepository;
         this.clientRepository = clientRepository;
         this.siteRepository = siteRepository;
         this.equipmentRepository = equipmentRepository;
+        this.reviewRepository = reviewRepository;
         this.authenticatedUserResolver = authenticatedUserResolver;
     }
 
@@ -141,9 +144,7 @@ public class InspectionMobileService {
                         .thenComparingInt(InspectionItemSnapshot::getItemOrder))
                 .map(this::toChecklistItem)
                 .toList();
-        InspectionMobileReview review = inspection.getStatus() == InspectionStatus.REJECTED
-                ? new InspectionMobileReview(InspectionStatus.REJECTED, null, List.of())
-                : null;
+        InspectionMobileReview review = correctionInstructions(inspection);
 
         return new InspectionMobileDetail(
                 inspection.getId(),
@@ -170,6 +171,24 @@ public class InspectionMobileService {
                 List.of(),
                 review
         );
+    }
+
+    /**
+     * The latest rejection, while the technician still has to correct it: before the
+     * explicit reopen (REJECTED) and during the correction (IN_PROGRESS after a submission).
+     */
+    private InspectionMobileReview correctionInstructions(Inspection inspection) {
+        boolean correcting = inspection.getStatus() == InspectionStatus.REJECTED
+                || (inspection.getStatus() == InspectionStatus.IN_PROGRESS && inspection.getSubmittedAtServer() != null);
+        if (!correcting) {
+            return null;
+        }
+        return reviewRepository.findFirstByInspectionIdOrderByReviewCycleDesc(inspection.getId())
+                .filter(review -> review.getDecision() == InspectionReviewDecision.REJECTED)
+                .map(review -> new InspectionMobileReview(
+                        InspectionStatus.REJECTED, review.getReason(), review.getItemsToCorrect()
+                ))
+                .orElse(null);
     }
 
     private InspectionMobileChecklistItem toChecklistItem(InspectionItemSnapshot snapshot) {

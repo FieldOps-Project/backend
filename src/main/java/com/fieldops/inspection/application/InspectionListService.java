@@ -21,7 +21,6 @@ import com.fieldops.user.domain.model.UserRole;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -39,7 +38,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
-@ConditionalOnBean(InspectionRepository.class)
 public class InspectionListService {
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(

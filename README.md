@@ -84,7 +84,7 @@ PUT  /api/v1/inspections/{inspectionId}/responses/{responseId}
 POST /api/v1/inspections/{inspectionId}/responses:batch
 ```
 
-Cada resposta usa somente o campo tipado correspondente ao `responseType` congelado no snapshot. O servidor grava os horarios do dispositivo e do recebimento, atribui `answeredBy` ao tecnico autenticado e rejeita itens de outra inspecao. O `PUT` e idempotente pelo id gerado no dispositivo; o batch devolve `APPLIED` ou `REJECTED` por item sem abortar os demais. Respostas ficam bloqueadas depois de `SUBMITTED`, `UNDER_REVIEW` ou `APPROVED`.
+Cada resposta usa somente o campo tipado correspondente ao `responseType` congelado no snapshot. O servidor grava os horarios do dispositivo e do recebimento, atribui `answeredBy` ao tecnico autenticado e rejeita itens de outra inspecao. O `PUT` e idempotente pelo id gerado no dispositivo; o batch devolve `APPLIED` ou `REJECTED` por item sem abortar os demais. Respostas ficam bloqueadas depois de `SUBMITTED`, `UNDER_REVIEW`, `REJECTED` (ate a reabertura) ou `APPROVED`.
 
 ### Evidencias
 
@@ -114,6 +114,35 @@ PATCH /api/v1/non-conformities/{id}/status
 O `POST` e idempotente pelo `id`/`nonConformityId`, exige titulo, descricao e severidade (`LOW`, `MEDIUM`, `HIGH` ou `CRITICAL`) e rejeita item/resposta de outra inspecao. A criacao de uma `CRITICAL` sem evidencia e aceita durante a sincronizacao offline; a validacao e aplicada no ponto de consolidacao, imediatamente antes da transicao `submit`, bloqueando o envio com `422` ate que exista uma evidencia ativa vinculada. O MVP possui somente o status `OPEN`; valores futuros sao rejeitados.
 
 Nao ha endpoint de exclusao: depois do envio a nao conformidade permanece no historico e qualquer mudanca e auditada. A criacao gera `NON_CONFORMITY_CREATED`.
+
+### Revisao da inspecao
+
+O supervisor revisa a inspecao enviada por:
+
+```text
+GET  /api/v1/inspections/{inspectionId}/reviews
+POST /api/v1/inspections/{inspectionId}/begin-review
+POST /api/v1/inspections/{inspectionId}/approve  { "comments": "opcional" }
+POST /api/v1/inspections/{inspectionId}/reject   { "reason": "obrigatorio", "itemsToCorrect": ["uuid"] }
+```
+
+Somente `SUPERVISOR` acessa esses endpoints. `begin-review` exige `SUBMITTED`; aprovar ou reprovar exige `UNDER_REVIEW`, e qualquer outro estado responde `409 INSPECTION_INVALID_TRANSITION`. A reprovacao sem motivo responde `422 INSPECTION_REJECTION_REASON_REQUIRED`, e cada id de `itemsToCorrect` precisa pertencer ao snapshot da inspecao.
+
+Cada decisao cria um registro proprio em `inspection_reviews` (`V19__create_inspection_reviews.sql`) com revisor, data do servidor, motivo, comentario e `review_cycle` sequencial por inspecao; os itens a corrigir ficam em `inspection_review_items`. O banco garante um unico registro por ciclo e o motivo obrigatorio na reprovacao. A aprovacao grava `approved_at` e bloqueia respostas, evidencias e nao conformidades. Os eventos `REVIEW_STARTED`, `INSPECTION_APPROVED` e `INSPECTION_REJECTED` sao registrados em `audit_events`. Nao existe endpoint para o supervisor alterar respostas do tecnico.
+
+### Correcao apos reprovacao
+
+O tecnico assume a correcao de uma inspecao `REJECTED` de forma explicita com `POST /api/v1/inspections/{id}/reopen`, que a devolve para `IN_PROGRESS` e gera `INSPECTION_REOPENED` (ADR-002). Enquanto a inspecao estiver `REJECTED`, respostas sao recusadas com `422 INSPECTION_REOPEN_REQUIRED`; inspecoes `APPROVED` nao podem ser reabertas.
+
+Depois da reabertura, se a ultima reprovacao listou `itemsToCorrect`, somente esses itens aceitam respostas (`422 INSPECTION_ITEM_NOT_IN_CORRECTION`); sem a lista, toda a inspecao volta a ser editavel. Antes de sobrescrever uma resposta, o servidor registra `RESPONSE_UPDATED` com o valor anterior e o novo. O detalhe mobile traz em `review` o motivo e os itens da ultima reprovacao enquanto a correcao estiver pendente, e o novo envio gera um novo ciclo de revisao.
+
+### Auditoria e historico da inspecao
+
+`AuditEventService` e o unico ponto de escrita de `audit_events`. Os casos de uso de inspecao chamam `recordInspectionEvent`, que grava autor, acao, entidade, `inspection_id`, horario do servidor, horario do dispositivo quando o evento veio do campo (`device_occurred_at`), o `X-Request-Id` da requisicao (`request_id`) e, na sincronizacao, o `device_id`. Os valores anterior e novo usam apenas campos permitidos e nunca incluem senha, token ou conteudo de arquivo.
+
+`V20__extend_audit_events.sql` acrescenta essas colunas, vincula os eventos antigos a sua inspecao, cria os indices por inspecao, horario e request e bloqueia `UPDATE`, `DELETE` e `TRUNCATE` na tabela por trigger. Nao existe endpoint de alteracao ou exclusao de evento.
+
+`GET /api/v1/inspections/{id}/history` devolve a linha do tempo ordenada por `occurred_at`, com autor, acao, horario do servidor e do dispositivo. O tecnico so consulta o historico das proprias inspecoes; ADMIN e SUPERVISOR consultam qualquer inspecao. Os autores sao carregados em uma unica consulta.
 
 ### Push de sincronizacao offline
 

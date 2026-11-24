@@ -109,18 +109,22 @@ public class InspectionSchedulingService {
                 request.scheduledFor()
         );
         Inspection saved = inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_CREATED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                null,
                 null,
                 auditState(saved)
         );
         if (technician != null) {
-            auditEventService.recordEvent(
+            auditEventService.recordInspectionEvent(
                     "INSPECTION_ASSIGNED",
                     INSPECTION_ENTITY,
                     saved.getId(),
+                    saved.getId(),
+                    null,
                     null,
                     "technicianId=" + technician.getId()
             );
@@ -176,18 +180,22 @@ public class InspectionSchedulingService {
                 request.scheduledFor()
         );
         Inspection saved = inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_UPDATED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                null,
                 null,
                 auditState(saved)
         );
         if (technician != null && !Objects.equals(previousTechnicianId, technician.getId())) {
-            auditEventService.recordEvent(
+            auditEventService.recordInspectionEvent(
                     "INSPECTION_ASSIGNED",
                     INSPECTION_ENTITY,
                     saved.getId(),
+                    saved.getId(),
+                    null,
                     null,
                     "technicianId=" + technician.getId()
             );

@@ -12,6 +12,8 @@ import com.fieldops.inspection.domain.model.InspectionPriority;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.domain.model.ResponseType;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionReviewRepository;
+import com.fieldops.inspection.domain.model.InspectionReview;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.user.domain.model.User;
 import org.junit.jupiter.api.AfterEach;
@@ -40,9 +42,10 @@ class InspectionMobileServiceTest {
     private final ClientRepository clientRepository = mock(ClientRepository.class);
     private final InspectionSiteRepository siteRepository = mock(InspectionSiteRepository.class);
     private final EquipmentRepository equipmentRepository = mock(EquipmentRepository.class);
+    private final InspectionReviewRepository reviewRepository = mock(InspectionReviewRepository.class);
     private final AuthenticatedUserResolver userResolver = mock(AuthenticatedUserResolver.class);
     private final InspectionMobileService service = new InspectionMobileService(
-            inspectionRepository, clientRepository, siteRepository, equipmentRepository, userResolver
+            inspectionRepository, clientRepository, siteRepository, equipmentRepository, reviewRepository, userResolver
     );
 
     private final UUID technicianId = UUID.randomUUID();
@@ -134,6 +137,11 @@ class InspectionMobileServiceTest {
         when(inspection.getItemSnapshots()).thenReturn(snapshots);
         when(inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, technicianId))
                 .thenReturn(Optional.of(inspection));
+        UUID itemToCorrect = snapshots.get(0).getId();
+        when(reviewRepository.findFirstByInspectionIdOrderByReviewCycleDesc(inspectionId)).thenReturn(Optional.of(
+                InspectionReview.reject(inspectionId, UUID.randomUUID(), "Foto ilegivel", null, Instant.now(), 1,
+                        List.of(itemToCorrect))
+        ));
 
         Client client = mock(Client.class);
         when(client.getId()).thenReturn(clientId);
@@ -151,6 +159,8 @@ class InspectionMobileServiceTest {
         assertThat(result.items()).extracting(InspectionMobileChecklistItem::itemTitle)
                 .containsExactly("Primeiro", "Segundo");
         assertThat(result.review().decision()).isEqualTo(InspectionStatus.REJECTED);
+        assertThat(result.review().reason()).isEqualTo("Foto ilegivel");
+        assertThat(result.review().itemsToCorrect()).containsExactly(itemToCorrect);
         assertThat(result.responses()).isEmpty();
     }
 

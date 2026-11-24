@@ -256,6 +256,27 @@ public class Inspection {
         this.status = InspectionStatus.SUBMITTED;
     }
 
+    /** Moves a submitted inspection to review once the transition policy is validated. */
+    public void beginReview() {
+        this.status = InspectionStatus.UNDER_REVIEW;
+    }
+
+    /** Locks the inspection for ordinary edits (RN-082); the decision details live in its review. */
+    public void approve(Instant approvedAt) {
+        this.approvedAt = Objects.requireNonNull(approvedAt, "approvedAt must not be null");
+        this.status = InspectionStatus.APPROVED;
+    }
+
+    /** Returns the inspection to the technician; the reason lives in its review (RN-080). */
+    public void reject() {
+        this.status = InspectionStatus.REJECTED;
+    }
+
+    /** The technician takes over the correction of a rejected inspection; earlier reviews stay untouched. */
+    public void reopen() {
+        this.status = InspectionStatus.IN_PROGRESS;
+    }
+
     // ── Getters ──────────────────────────────────────────────
 
     public UUID getId() {

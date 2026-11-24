@@ -15,7 +15,10 @@ import java.util.UUID;
 @Entity
 @Table(name = "audit_events", indexes = {
         @Index(name = "ix_audit_events_entity", columnList = "entity_type, entity_id"),
-        @Index(name = "ix_audit_events_actor", columnList = "actor_user_id")
+        @Index(name = "ix_audit_events_actor", columnList = "actor_user_id"),
+        @Index(name = "ix_audit_insp", columnList = "inspection_id"),
+        @Index(name = "ix_audit_occurred", columnList = "occurred_at"),
+        @Index(name = "ix_audit_request", columnList = "request_id")
 })
 public class AuditEvent {
 
@@ -44,6 +47,18 @@ public class AuditEvent {
 
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt;
+
+    @Column(name = "inspection_id", updatable = false)
+    private UUID inspectionId;
+
+    @Column(name = "device_occurred_at", updatable = false)
+    private Instant deviceOccurredAt;
+
+    @Column(name = "request_id", columnDefinition = "TEXT", updatable = false)
+    private String requestId;
+
+    @Column(name = "device_id", updatable = false)
+    private UUID deviceId;
 
     protected AuditEvent() {
     }
@@ -78,6 +93,28 @@ public class AuditEvent {
         return new AuditEvent(actorUserId, action, entityType, entityId, beforeValues, afterValues, occurredAt);
     }
 
+    /** Event of an inspection timeline, with the field clock and the request/device correlation. */
+    public static AuditEvent create(
+            UUID actorUserId,
+            String action,
+            String entityType,
+            UUID entityId,
+            UUID inspectionId,
+            String beforeValues,
+            String afterValues,
+            Instant occurredAt,
+            Instant deviceOccurredAt,
+            String requestId,
+            UUID deviceId
+    ) {
+        AuditEvent event = new AuditEvent(actorUserId, action, entityType, entityId, beforeValues, afterValues, occurredAt);
+        event.inspectionId = inspectionId;
+        event.deviceOccurredAt = deviceOccurredAt;
+        event.requestId = requestId;
+        event.deviceId = deviceId;
+        return event;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -108,5 +145,21 @@ public class AuditEvent {
 
     public Instant getOccurredAt() {
         return occurredAt;
+    }
+
+    public UUID getInspectionId() {
+        return inspectionId;
+    }
+
+    public Instant getDeviceOccurredAt() {
+        return deviceOccurredAt;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public UUID getDeviceId() {
+        return deviceId;
     }
 }
