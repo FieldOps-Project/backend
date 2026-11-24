@@ -27,10 +27,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @ConditionalOnBean(SyncProcessedOperationRepository.class)
 public class SyncOperationProcessor {
+
+    private static final Pattern SHA_256_HEX = Pattern.compile("[0-9a-f]{64}");
 
     private final SyncProcessedOperationRepository processedOperationRepository;
     private final InspectionResponseService responseService;
@@ -145,10 +148,29 @@ public class SyncOperationProcessor {
         );
     }
 
+    /**
+     * CREATE/UPSERT applies only the metadata; UPLOAD sends the binary and also creates
+     * the evidence when its metadata was not synchronized before (RN-078).
+     */
     private AppliedEntity applyEvidence(SyncOperationRequest operation) {
-        requireOperationType(operation, "UPLOAD");
         SyncPayloads.Evidence payload = readPayload(operation, SyncPayloads.Evidence.class);
         UUID inspectionId = requireInspectionId(payload.inspectionId());
+        if ("CREATE".equals(operation.operationType()) || "UPSERT".equals(operation.operationType())) {
+            if (payload.sizeBytes() == null || payload.checksum() == null
+                    || !SHA_256_HEX.matcher(payload.checksum()).matches()) {
+                throw new InvalidRequestException(
+                        "EVIDENCE_FILE_DESCRIPTION_REQUIRED",
+                        "Evidence metadata must declare the file size and its SHA-256 checksum"
+                );
+            }
+            return new AppliedEntity(
+                    evidenceService.registerFromSynchronization(
+                            inspectionId, evidenceMetadata(operation, payload), payload.mimeType(),
+                            payload.sizeBytes(), payload.checksum()
+                    ).getVersion()
+            );
+        }
+        requireOperationType(operation, "UPLOAD");
         if (payload.contentBase64() == null || payload.contentBase64().isBlank()) {
             throw new InvalidRequestException("EVIDENCE_CONTENT_REQUIRED", "Evidence content is required for synchronization");
         }
@@ -158,15 +180,18 @@ public class SyncOperationProcessor {
         } catch (IllegalArgumentException exception) {
             throw new InvalidRequestException("EVIDENCE_CONTENT_INVALID", "Evidence content is not valid base64");
         }
-        EvidenceMetadataRequest metadata = new EvidenceMetadataRequest(
+        return new AppliedEntity(
+                evidenceService.uploadFromSynchronization(
+                        inspectionId, evidenceMetadata(operation, payload), content, payload.mimeType()
+                ).getVersion()
+        );
+    }
+
+    private EvidenceMetadataRequest evidenceMetadata(SyncOperationRequest operation, SyncPayloads.Evidence payload) {
+        return new EvidenceMetadataRequest(
                 operation.entityId(), payload.responseId(), payload.nonConformityId(), payload.type(),
                 payload.capturedAtDevice() == null ? clock.instant() : payload.capturedAtDevice(),
                 payload.description(), payload.latitude(), payload.longitude(), payload.accuracyMeters()
-        );
-        return new AppliedEntity(
-                evidenceService.uploadFromSynchronization(
-                        inspectionId, metadata, content, payload.mimeType()
-                ).getVersion()
         );
     }
 

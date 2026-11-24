@@ -93,6 +93,7 @@ public class SyncChangeReader {
                            'latitude', e.latitude, 'longitude', e.longitude,
                            'accuracyMeters', e.accuracy_meters, 'capturedAtDevice', e.captured_at_device,
                            'serverReceivedAt', e.server_received_at, 'uploadedAt', e.uploaded_at,
+                           'fileReceived', e.uploaded_at IS NOT NULL,
                            'createdBy', e.created_by, 'deletedAt', e.deleted_at, 'deletedBy', e.deleted_by,
                            'updatedAt', e.updated_at, 'version', e.version
                        )
