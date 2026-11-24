@@ -19,6 +19,8 @@ public interface InspectionRepository extends JpaRepository<Inspection, UUID>, J
 
     Optional<Inspection> findByIdAndSupervisorId(UUID id, UUID supervisorId);
 
+    boolean existsByIdAndTechnicianId(UUID id, UUID technicianId);
+
     List<Inspection> findAllByTechnicianId(UUID technicianId);
 
     List<Inspection> findAllBySupervisorId(UUID supervisorId);
