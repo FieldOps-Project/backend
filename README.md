@@ -84,7 +84,7 @@ PUT  /api/v1/inspections/{inspectionId}/responses/{responseId}
 POST /api/v1/inspections/{inspectionId}/responses:batch
 ```
 
-Cada resposta usa somente o campo tipado correspondente ao `responseType` congelado no snapshot. O servidor grava os horarios do dispositivo e do recebimento, atribui `answeredBy` ao tecnico autenticado e rejeita itens de outra inspecao. O `PUT` e idempotente pelo id gerado no dispositivo; o batch devolve `APPLIED` ou `REJECTED` por item sem abortar os demais. Respostas ficam bloqueadas depois de `SUBMITTED`, `UNDER_REVIEW` ou `APPROVED`.
+Cada resposta usa somente o campo tipado correspondente ao `responseType` congelado no snapshot. O servidor grava os horarios do dispositivo e do recebimento, atribui `answeredBy` ao tecnico autenticado e rejeita itens de outra inspecao. O `PUT` e idempotente pelo id gerado no dispositivo; o batch devolve `APPLIED` ou `REJECTED` por item sem abortar os demais. Respostas ficam bloqueadas depois de `SUBMITTED`, `UNDER_REVIEW`, `REJECTED` (ate a reabertura) ou `APPROVED`.
 
 ### Evidencias
 
@@ -129,6 +129,12 @@ POST /api/v1/inspections/{inspectionId}/reject   { "reason": "obrigatorio", "ite
 Somente `SUPERVISOR` acessa esses endpoints. `begin-review` exige `SUBMITTED`; aprovar ou reprovar exige `UNDER_REVIEW`, e qualquer outro estado responde `409 INSPECTION_INVALID_TRANSITION`. A reprovacao sem motivo responde `422 INSPECTION_REJECTION_REASON_REQUIRED`, e cada id de `itemsToCorrect` precisa pertencer ao snapshot da inspecao.
 
 Cada decisao cria um registro proprio em `inspection_reviews` (`V19__create_inspection_reviews.sql`) com revisor, data do servidor, motivo, comentario e `review_cycle` sequencial por inspecao; os itens a corrigir ficam em `inspection_review_items`. O banco garante um unico registro por ciclo e o motivo obrigatorio na reprovacao. A aprovacao grava `approved_at` e bloqueia respostas, evidencias e nao conformidades. Os eventos `REVIEW_STARTED`, `INSPECTION_APPROVED` e `INSPECTION_REJECTED` sao registrados em `audit_events`. Nao existe endpoint para o supervisor alterar respostas do tecnico.
+
+### Correcao apos reprovacao
+
+O tecnico assume a correcao de uma inspecao `REJECTED` de forma explicita com `POST /api/v1/inspections/{id}/reopen`, que a devolve para `IN_PROGRESS` e gera `INSPECTION_REOPENED` (ADR-002). Enquanto a inspecao estiver `REJECTED`, respostas sao recusadas com `422 INSPECTION_REOPEN_REQUIRED`; inspecoes `APPROVED` nao podem ser reabertas.
+
+Depois da reabertura, se a ultima reprovacao listou `itemsToCorrect`, somente esses itens aceitam respostas (`422 INSPECTION_ITEM_NOT_IN_CORRECTION`); sem a lista, toda a inspecao volta a ser editavel. Antes de sobrescrever uma resposta, o servidor registra `RESPONSE_UPDATED` com o valor anterior e o novo. O detalhe mobile traz em `review` o motivo e os itens da ultima reprovacao enquanto a correcao estiver pendente, e o novo envio gera um novo ciclo de revisao.
 
 ### Push de sincronizacao offline
 
