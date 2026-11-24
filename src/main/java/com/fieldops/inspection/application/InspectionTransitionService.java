@@ -152,10 +152,12 @@ public class InspectionTransitionService {
         InspectionStatus previousStatus = inspection.getStatus();
         inspection.assign(technician.getId());
         Inspection saved = inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_ASSIGNED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                null,
                 before,
                 auditState(saved)
         );
@@ -181,10 +183,12 @@ public class InspectionTransitionService {
         InspectionStatus previousStatus = inspection.getStatus();
         inspection.cancel(actorUserId, reason.trim(), Instant.now());
         Inspection saved = inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_CANCELED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                null,
                 before,
                 auditState(saved)
         );
@@ -205,10 +209,12 @@ public class InspectionTransitionService {
                 toFieldPosition(request.location())
         );
         Inspection saved = inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_STARTED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                saved.getStartedAtDevice(),
                 before,
                 executionAuditState(saved)
         );
@@ -237,17 +243,21 @@ public class InspectionTransitionService {
                 toFieldPosition(request.location())
         );
         Inspection saved = inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_COMPLETED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                saved.getCompletedAtDevice(),
                 before,
                 executionAuditState(saved)
         );
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_SUBMITTED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                saved.getCompletedAtDevice(),
                 before,
                 executionAuditState(saved)
         );
@@ -264,10 +274,12 @@ public class InspectionTransitionService {
         InspectionStatus previousStatus = inspection.getStatus();
         inspection.reopen();
         Inspection saved = inspectionRepository().saveAndFlush(inspection);
-        auditEventService.recordEvent(
+        auditEventService.recordInspectionEvent(
                 "INSPECTION_REOPENED",
                 INSPECTION_ENTITY,
                 saved.getId(),
+                saved.getId(),
+                null,
                 before,
                 executionAuditState(saved)
         );

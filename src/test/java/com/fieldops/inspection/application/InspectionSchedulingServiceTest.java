@@ -172,11 +172,11 @@ class InspectionSchedulingServiceTest {
                 .containsExactly("Lacre intacto?", "Pintura");
         assertThat(saved.getItemSnapshots().get(0).getItemDescription())
                 .isEqualTo("Verifique o lacre.");
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_CREATED"), eq("INSPECTION"), eq(saved.getId()), eq(null), any(String.class)
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_CREATED"), eq("INSPECTION"), eq(saved.getId()), eq(saved.getId()), eq(null), eq(null), any(String.class)
         );
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_ASSIGNED"), eq("INSPECTION"), eq(saved.getId()), eq(null),
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_ASSIGNED"), eq("INSPECTION"), eq(saved.getId()), eq(saved.getId()), eq(null), eq(null),
                 eq("technicianId=" + technicianId)
         );
     }
@@ -235,8 +235,8 @@ class InspectionSchedulingServiceTest {
 
         assertThat(saved.getStatus()).isEqualTo(InspectionStatus.DRAFT);
         assertThat(saved.getTechnicianId()).isNull();
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_CREATED"), eq("INSPECTION"), eq(saved.getId()), eq(null), any(String.class)
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_CREATED"), eq("INSPECTION"), eq(saved.getId()), eq(saved.getId()), eq(null), eq(null), any(String.class)
         );
     }
 
@@ -258,8 +258,8 @@ class InspectionSchedulingServiceTest {
 
         assertThat(updated.getTitle()).isEqualTo("Inspecao remarcada");
         assertThat(updated.getItemSnapshots().get(0).getItemTitle()).isEqualTo(originalItemTitle);
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_UPDATED"), eq("INSPECTION"), eq(initial.getId()), eq(null), any(String.class)
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_UPDATED"), eq("INSPECTION"), eq(initial.getId()), eq(initial.getId()), eq(null), eq(null), any(String.class)
         );
     }
 

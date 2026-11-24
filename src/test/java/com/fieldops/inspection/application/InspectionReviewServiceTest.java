@@ -94,8 +94,8 @@ class InspectionReviewServiceTest {
 
         assertThat(result.previousStatus()).isEqualTo(InspectionStatus.SUBMITTED);
         assertThat(result.inspection().getStatus()).isEqualTo(InspectionStatus.UNDER_REVIEW);
-        verify(auditEventService).recordEvent(
-                "REVIEW_STARTED", "INSPECTION", inspectionId, "status=SUBMITTED", "status=UNDER_REVIEW"
+        verify(auditEventService).recordInspectionEvent(
+                "REVIEW_STARTED", "INSPECTION", inspectionId, inspectionId, null, "status=SUBMITTED", "status=UNDER_REVIEW"
         );
     }
 
@@ -109,7 +109,7 @@ class InspectionReviewServiceTest {
                 .hasFieldOrPropertyWithValue("code", "INSPECTION_INVALID_TRANSITION");
 
         verify(inspectionRepository, never()).saveAndFlush(any(Inspection.class));
-        verify(auditEventService, never()).recordEvent(any(), any(), any(), any(), any());
+        verify(auditEventService, never()).recordInspectionEvent(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -130,8 +130,9 @@ class InspectionReviewServiceTest {
         assertThat(inspection.getStatus()).isEqualTo(InspectionStatus.APPROVED);
         assertThat(inspection.getApprovedAt()).isEqualTo(NOW);
         verify(inspectionRepository).saveAndFlush(inspection);
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_APPROVED"), eq("INSPECTION"), eq(inspectionId), eq("status=UNDER_REVIEW"),
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_APPROVED"), eq("INSPECTION"), eq(inspectionId), eq(inspectionId), eq(null),
+                eq("status=UNDER_REVIEW"),
                 argThat(value -> value.startsWith("status=APPROVED;reviewCycle=2;reviewerId=" + supervisorId))
         );
     }
@@ -175,8 +176,9 @@ class InspectionReviewServiceTest {
         assertThat(review.getItemsToCorrect()).containsExactly(itemId);
         assertThat(review.getReviewCycle()).isEqualTo(1);
         assertThat(withSnapshots.getStatus()).isEqualTo(InspectionStatus.REJECTED);
-        verify(auditEventService).recordEvent(
-                eq("INSPECTION_REJECTED"), eq("INSPECTION"), eq(inspectionId), eq("status=UNDER_REVIEW"),
+        verify(auditEventService).recordInspectionEvent(
+                eq("INSPECTION_REJECTED"), eq("INSPECTION"), eq(inspectionId), eq(inspectionId), eq(null),
+                eq("status=UNDER_REVIEW"),
                 argThat(value -> value.contains("reason=Foto ilegivel") && value.contains(itemId.toString()))
         );
     }

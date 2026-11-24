@@ -116,7 +116,8 @@ public class NonConformityService implements InspectionNonConformityReader {
                 request.id(), inspectionId, request.inspectionItemId(), request.responseId(), request.title(),
                 request.description(), request.severity(), actor, request.createdAtDevice(), clock.instant()
         ));
-        auditEventService.recordEvent("NON_CONFORMITY_CREATED", ENTITY, saved.getId(), null, auditState(saved));
+        auditEventService.recordInspectionEvent("NON_CONFORMITY_CREATED", ENTITY, saved.getId(), saved.getInspectionId(),
+                saved.getCreatedAtDevice(), null, auditState(saved));
         return saved;
     }
 
@@ -127,7 +128,8 @@ public class NonConformityService implements InspectionNonConformityReader {
         String before = auditState(nonConformity);
         nonConformity.updateDetails(request.title(), request.description(), request.severity());
         NonConformity saved = repository.saveAndFlush(nonConformity);
-        auditEventService.recordEvent("NON_CONFORMITY_UPDATED", ENTITY, saved.getId(), before, auditState(saved));
+        auditEventService.recordInspectionEvent("NON_CONFORMITY_UPDATED", ENTITY, saved.getId(), saved.getInspectionId(),
+                null, before, auditState(saved));
         return saved;
     }
 
