@@ -1,7 +1,7 @@
 package com.fieldops.inspection.presentation.mapper;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.inspection.domain.model.InspectionResponse;
 import com.fieldops.inspection.presentation.dto.InspectionResponseResponse;
 import org.springframework.stereotype.Component;

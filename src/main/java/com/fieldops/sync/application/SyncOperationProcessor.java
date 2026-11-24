@@ -1,7 +1,7 @@
 package com.fieldops.sync.application;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.inspection.application.InspectionEvidenceService;
 import com.fieldops.inspection.application.InspectionResponseService;
 import com.fieldops.inspection.application.NonConformityService;
@@ -205,7 +205,7 @@ public class SyncOperationProcessor {
         }
         try {
             return objectMapper.treeToValue(operation.payload(), type);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new InvalidRequestException("SYNC_PAYLOAD_INVALID", "The synchronization payload is invalid");
         }
     }
@@ -247,14 +247,10 @@ public class SyncOperationProcessor {
     }
 
     private void lock(UUID operationId) {
-        long key1 = operationId.getMostSignificantBits();
-        long key2 = operationId.getLeastSignificantBits();
+        long key = operationId.getMostSignificantBits() ^ operationId.getLeastSignificantBits();
         jdbcTemplate.query(
-                "SELECT pg_advisory_xact_lock(?, ?)",
-                statement -> {
-                    statement.setLong(1, key1);
-                    statement.setLong(2, key2);
-                },
+                "SELECT pg_advisory_xact_lock(?)",
+                statement -> statement.setLong(1, key),
                 resultSet -> null
         );
     }

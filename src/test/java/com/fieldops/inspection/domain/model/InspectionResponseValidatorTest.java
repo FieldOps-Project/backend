@@ -1,6 +1,6 @@
 package com.fieldops.inspection.domain.model;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.fieldops.inspection.application.InspectionResponseValidator;
 import com.fieldops.inspection.presentation.dto.SaveInspectionResponseRequest;
 import com.fieldops.shared.domain.exception.BusinessRuleException;

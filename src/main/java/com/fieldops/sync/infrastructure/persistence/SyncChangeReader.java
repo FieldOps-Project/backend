@@ -1,8 +1,8 @@
 package com.fieldops.sync.infrastructure.persistence;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.sync.domain.model.SyncChange;
 import com.fieldops.sync.domain.model.SyncCursor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -170,7 +171,7 @@ public class SyncChangeReader {
         statement.setObject(index++, technicianId);
         statement.setObject(index++, technicianId);
         if (cursor != null) {
-            statement.setObject(index++, cursor.changedAt());
+            statement.setObject(index++, cursor.changedAt().atOffset(ZoneOffset.UTC));
             statement.setObject(index++, cursor.entityId());
         }
         statement.setInt(index, limit);
@@ -190,7 +191,7 @@ public class SyncChangeReader {
     private JsonNode readPayload(ResultSet resultSet) throws SQLException {
         try {
             return objectMapper.readTree(resultSet.getString("payload"));
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new SQLException("Stored synchronization payload is invalid", exception);
         }
     }
