@@ -7,8 +7,6 @@ import com.fieldops.sync.domain.model.SyncCursor;
 import com.fieldops.sync.infrastructure.persistence.SyncChangeReader;
 import com.fieldops.sync.presentation.dto.SyncChangeResponse;
 import com.fieldops.sync.presentation.dto.SyncPullResponse;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +17,6 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(JdbcTemplate.class)
 public class SyncPullService {
 
     private static final int DEFAULT_LIMIT = 200;

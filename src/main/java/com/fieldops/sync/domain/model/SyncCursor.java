@@ -1,9 +1,9 @@
 package com.fieldops.sync.domain.model;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.shared.domain.exception.InvalidRequestException;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
@@ -34,7 +34,7 @@ public record SyncCursor(Instant changedAt, UUID entityId) {
                     Instant.parse(payload.get("ts").asText()),
                     UUID.fromString(payload.get("id").asText())
             );
-        } catch (IllegalArgumentException | IOException exception) {
+        } catch (IllegalArgumentException | JacksonException exception) {
             throw invalid();
         }
     }
