@@ -254,6 +254,26 @@ public class InspectionTransitionService {
         return new InspectionTransitionResult(saved, previousStatus);
     }
 
+    @Transactional
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public InspectionTransitionResult reopen(UUID inspectionId) {
+        Inspection inspection = findForTechnician(inspectionId);
+        stateMachine.assertTransitionValid(inspection.getStatus(), InspectionAction.REOPEN);
+
+        String before = executionAuditState(inspection);
+        InspectionStatus previousStatus = inspection.getStatus();
+        inspection.reopen();
+        Inspection saved = inspectionRepository().saveAndFlush(inspection);
+        auditEventService.recordEvent(
+                "INSPECTION_REOPENED",
+                INSPECTION_ENTITY,
+                saved.getId(),
+                before,
+                executionAuditState(saved)
+        );
+        return new InspectionTransitionResult(saved, previousStatus);
+    }
+
     private User findTechnician(UUID technicianId) {
         User technician = userRepository.findById(technicianId)
                 .orElseThrow(() -> ResourceNotFoundException.of("User", technicianId));

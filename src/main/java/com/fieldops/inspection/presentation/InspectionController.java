@@ -410,6 +410,30 @@ public class InspectionController {
         return transitionMapper.toExecutionResponse(result.inspection(), result.previousStatus());
     }
 
+    @PostMapping("/inspections/{id}/reopen")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Reopen a rejected inspection for correction",
+            description = "Explicit technician action that moves a REJECTED inspection back to IN_PROGRESS. "
+                    + "When the last rejection lists itemsToCorrect, only those items accept new responses.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Inspection reopened",
+                            content = @Content(schema = @Schema(implementation = InspectionExecutionResponse.class))),
+                    @ApiResponse(responseCode = "403", description = "Access denied",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "404", description = "Inspection is not assigned to this technician",
+                            content = @Content(schema = @Schema(implementation = ApiError.class))),
+                    @ApiResponse(responseCode = "409", description = "Inspection is not REJECTED",
+                            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            }
+    )
+    public InspectionExecutionResponse reopen(@PathVariable UUID id) {
+        InspectionTransitionResult result = transitionService.reopen(id);
+        return transitionMapper.toExecutionResponse(result.inspection(), result.previousStatus());
+    }
+
     @GetMapping("/inspections/{inspectionId}/responses")
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
