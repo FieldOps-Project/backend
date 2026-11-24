@@ -121,6 +121,8 @@ O aplicativo envia operacoes acumuladas offline por `POST /api/v1/mobile/sync/pu
 
 As operacoes sao ordenadas por `dependsOn` e executadas em transacoes independentes. Respostas, evidencias e nao conformidades sao autorizadas contra o tecnico do token; uma inspeccao de outro tecnico ou `APPROVED` e rejeitada. A tabela `sync_processed_operations` registra o resultado para que reenvios retornem `ALREADY_APPLIED` sem repetir a escrita. A resposta sempre inclui `results`, `changes`, `nextCursor` e `serverTime`.
 
+Evidencias podem ser sincronizadas em dois passos (RN-078). A operacao `INSPECTION_EVIDENCE` com `CREATE`/`UPSERT` aplica apenas os metadados e exige `mimeType`, `sizeBytes` e o `checksum` SHA-256 do arquivo; a evidencia fica com `server_received_at` preenchido e `uploaded_at` nulo ("dados enviados, foto pendente"). A operacao `UPLOAD` envia o binario em `contentBase64`, deve declarar em `dependsOn` a operacao da resposta relacionada e grava o arquivo na mesma `storage_key`. O reenvio do mesmo `evidenceId` nunca cria um segundo registro; com checksum identico o objeto nao e regravado. Uma falha de upload rejeita somente essa operacao e nao reverte as respostas ja aplicadas; o reenvio usa um novo `operationId`. Evidencia com arquivo pendente nao pode ser baixada.
+
 ### Pull incremental
 
 O aplicativo baixa as alteracoes do tecnico autenticado por `GET /api/v1/mobile/sync/pull?cursor=&limit=200`.
@@ -128,7 +130,7 @@ O cursor e uma string opaca gerada pelo servidor: o app deve apenas persistir o 
 devolve-lo na proxima chamada, sem interpretar ou montar seu conteudo. A ordenacao usa o par `(updated_at, id)`
 e o endpoint devolve `hasMore` quando ainda existem alteracoes no lote. No primeiro pull, omita `cursor`.
 
-O pull inclui inspecoes, snapshots, respostas, metadados de evidencias, nao conformidades e os clientes,
+O pull inclui inspecoes, snapshots, respostas, metadados de evidencias (com `fileReceived` indicando se o arquivo ja chegou), nao conformidades e os clientes,
 locais e equipamentos relacionados. Cancelamentos e exclusoes de evidencia aparecem como `DELETE_LOGICAL`
 com o estado preservado no payload; nenhum registro e removido do resultado por estar cancelado.
 
