@@ -8,7 +8,6 @@ import com.fieldops.sync.presentation.dto.SyncOperationResult;
 import com.fieldops.sync.presentation.dto.SyncPushRequest;
 import com.fieldops.sync.presentation.dto.SyncPushResponse;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +20,6 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(SyncOperationProcessor.class)
 public class SyncPushService {
 
     private final SyncOperationProcessor operationProcessor;

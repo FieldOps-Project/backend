@@ -16,7 +16,6 @@ import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.user.domain.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,7 +33,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
-@ConditionalOnBean(InspectionRepository.class)
 public class InspectionMobileService {
 
     private final InspectionRepository inspectionRepository;

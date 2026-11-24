@@ -23,7 +23,6 @@ import com.fieldops.shared.presentation.dto.PaginationDefaults;
 import com.fieldops.user.domain.model.User;
 import com.fieldops.user.domain.model.UserRole;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -39,7 +38,6 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(NonConformityRepository.class)
 public class NonConformityService implements InspectionNonConformityReader {
 
     private static final String ENTITY = "NON_CONFORMITY";

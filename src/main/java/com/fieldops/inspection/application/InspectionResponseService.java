@@ -24,7 +24,6 @@ import com.fieldops.shared.domain.exception.InvalidRequestException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.domain.exception.Violation;
 import com.fieldops.shared.presentation.dto.ApiError;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -38,7 +37,6 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(InspectionResponseRepository.class)
 public class InspectionResponseService implements InspectionResponseReader {
 
     private final InspectionRepository inspectionRepository;
