@@ -15,6 +15,7 @@ import com.fieldops.inspection.infrastructure.storage.EvidenceStorage;
 import com.fieldops.inspection.presentation.dto.EvidenceMetadataRequest;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
 import com.fieldops.shared.domain.exception.ConflictException;
+import com.fieldops.shared.domain.exception.PayloadTooLargeException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.domain.exception.Violation;
 import com.fieldops.user.domain.model.User;
@@ -123,7 +124,7 @@ public class InspectionEvidenceService {
             if (!existing.getInspectionId().equals(inspectionId)) {
                 throw new ConflictException("EVIDENCE_ID_REUSED", "The evidence id is already linked to another inspection");
             }
-            return existing;
+            return existing.isDeleted() ? existing : receiveFile(existing, content);
         }
 
         validateResponseLink(inspectionId, metadata.responseId());
@@ -150,6 +151,48 @@ public class InspectionEvidenceService {
         }
     }
 
+    /**
+     * Applies the metadata of an evidence whose binary is synchronized by a later UPLOAD
+     * operation (RN-078): the evidence stays with {@code uploaded_at} null until then.
+     */
+    @Transactional
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public InspectionEvidence registerFromSynchronization(
+            UUID inspectionId,
+            EvidenceMetadataRequest metadata,
+            String mimeType,
+            long sizeBytes,
+            String checksum
+    ) {
+        assertEditable(loadForTechnician(inspectionId));
+        InspectionEvidence existing = evidenceRepository.findById(metadata.id()).orElse(null);
+        if (existing != null) {
+            if (!existing.getInspectionId().equals(inspectionId)) {
+                throw new ConflictException("EVIDENCE_ID_REUSED", "The evidence id is already linked to another inspection");
+            }
+            return existing;
+        }
+
+        validateResponseLink(inspectionId, metadata.responseId());
+        validateNonConformityLink(inspectionId, metadata.nonConformityId());
+        validateCoordinates(metadata);
+        String extension = fileValidator.requireSupportedType(mimeType);
+        if (sizeBytes <= 0 || sizeBytes > maxSizeBytes) {
+            throw new PayloadTooLargeException("EVIDENCE_TOO_LARGE", "The evidence exceeds the configured size limit");
+        }
+        Instant now = Instant.now(clock);
+        InspectionEvidence evidence = InspectionEvidence.create(
+                metadata.id(), inspectionId, metadata.responseId(), metadata.nonConformityId(), metadata.type(),
+                "inspections/" + inspectionId + "/" + metadata.id() + "." + extension,
+                mimeType.toLowerCase(), sizeBytes, checksum, metadata.description(),
+                metadata.latitude(), metadata.longitude(), metadata.accuracyMeters(), metadata.capturedAtDevice(),
+                now, null, currentUserId()
+        );
+        InspectionEvidence saved = evidenceRepository.saveAndFlush(evidence);
+        auditEventService.recordEvent("EVIDENCE_ADDED", EVIDENCE_ENTITY, saved.getId(), null, auditState(saved));
+        return saved;
+    }
+
     @Transactional(readOnly = true)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EVIDENCE_READ)
     public List<InspectionEvidence> findAll(UUID inspectionId) {
@@ -163,7 +206,7 @@ public class InspectionEvidenceService {
         InspectionEvidence evidence = evidenceRepository.findById(evidenceId)
                 .orElseThrow(() -> ResourceNotFoundException.of("Evidence", evidenceId));
         loadForReadableUser(evidence.getInspectionId());
-        if (evidence.isDeleted()) {
+        if (evidence.isDeleted() || !evidence.isFileReceived()) {
             throw ResourceNotFoundException.of("Evidence", evidenceId);
         }
         return new InspectionEvidenceDownload(evidence, evidenceStorage.read(evidence.getStorageKey()));
@@ -186,6 +229,22 @@ public class InspectionEvidenceService {
         evidenceStorage.delete(evidence.getStorageKey());
         InspectionEvidence saved = evidenceRepository.saveAndFlush(evidence);
         auditEventService.recordEvent("EVIDENCE_REMOVED", EVIDENCE_ENTITY, saved.getId(), before, auditState(saved));
+    }
+
+    /**
+     * Stores the binary of an existing evidence under its own storage key. An identical
+     * resend (same checksum) is a no-op, so the object is never rewritten needlessly.
+     */
+    private InspectionEvidence receiveFile(InspectionEvidence evidence, byte[] content) {
+        String checksum = checksum(content);
+        if (evidence.isFileReceived() && evidence.getChecksum().equals(checksum)) {
+            return evidence;
+        }
+        EvidenceFileValidator.ValidatedEvidenceFile validated =
+                fileValidator.validate(content, evidence.getMimeType(), maxSizeBytes);
+        evidenceStorage.replace(evidence.getStorageKey(), validated.content());
+        evidence.receiveFile(validated.content().length, checksum, Instant.now(clock));
+        return evidenceRepository.saveAndFlush(evidence);
     }
 
     private Inspection loadForTechnician(UUID inspectionId) {
