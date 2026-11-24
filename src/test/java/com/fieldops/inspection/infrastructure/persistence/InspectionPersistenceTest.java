@@ -1,6 +1,6 @@
 package com.fieldops.inspection.infrastructure.persistence;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.inspection.domain.model.FieldPosition;
 import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.domain.model.InspectionItemSnapshot;

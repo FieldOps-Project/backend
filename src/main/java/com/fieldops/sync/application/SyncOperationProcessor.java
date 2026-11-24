@@ -1,7 +1,7 @@
 package com.fieldops.sync.application;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.audit.application.AuditEventService;
 import com.fieldops.inspection.application.InspectionEvidenceService;
 import com.fieldops.inspection.application.InspectionResponseService;
@@ -19,7 +19,6 @@ import com.fieldops.sync.infrastructure.persistence.SyncProcessedOperationReposi
 import com.fieldops.sync.presentation.dto.SyncOperationRequest;
 import com.fieldops.sync.presentation.dto.SyncOperationResult;
 import org.slf4j.MDC;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -31,7 +30,6 @@ import java.util.Base64;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(SyncProcessedOperationRepository.class)
 public class SyncOperationProcessor {
 
     private final SyncProcessedOperationRepository processedOperationRepository;
@@ -212,7 +210,7 @@ public class SyncOperationProcessor {
         }
         try {
             return objectMapper.treeToValue(operation.payload(), type);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new InvalidRequestException("SYNC_PAYLOAD_INVALID", "The synchronization payload is invalid");
         }
     }
@@ -254,14 +252,10 @@ public class SyncOperationProcessor {
     }
 
     private void lock(UUID operationId) {
-        long key1 = operationId.getMostSignificantBits();
-        long key2 = operationId.getLeastSignificantBits();
+        long key = operationId.getMostSignificantBits() ^ operationId.getLeastSignificantBits();
         jdbcTemplate.query(
-                "SELECT pg_advisory_xact_lock(?, ?)",
-                statement -> {
-                    statement.setLong(1, key1);
-                    statement.setLong(2, key2);
-                },
+                "SELECT pg_advisory_xact_lock(?)",
+                statement -> statement.setLong(1, key),
                 resultSet -> null
         );
     }

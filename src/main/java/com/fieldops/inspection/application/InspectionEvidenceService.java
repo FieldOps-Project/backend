@@ -20,7 +20,6 @@ import com.fieldops.shared.domain.exception.Violation;
 import com.fieldops.user.domain.model.User;
 import com.fieldops.user.domain.model.UserRole;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,6 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(InspectionEvidenceRepository.class)
 public class InspectionEvidenceService {
 
     private static final String EVIDENCE_ENTITY = "INSPECTION_EVIDENCE";

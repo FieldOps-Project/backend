@@ -1,7 +1,7 @@
 package com.fieldops.inspection.application;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.fieldops.audit.application.AuditEventService;
 import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
 import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
@@ -28,7 +28,6 @@ import com.fieldops.shared.domain.exception.InvalidRequestException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.domain.exception.Violation;
 import com.fieldops.shared.presentation.dto.ApiError;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,7 +42,6 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
-@ConditionalOnBean(InspectionResponseRepository.class)
 public class InspectionResponseService implements InspectionResponseReader {
 
     private static final String RESPONSE_ENTITY = "INSPECTION_RESPONSE";
