@@ -115,6 +115,21 @@ O `POST` e idempotente pelo `id`/`nonConformityId`, exige titulo, descricao e se
 
 Nao ha endpoint de exclusao: depois do envio a nao conformidade permanece no historico e qualquer mudanca e auditada. A criacao gera `NON_CONFORMITY_CREATED`.
 
+### Revisao da inspecao
+
+O supervisor revisa a inspecao enviada por:
+
+```text
+GET  /api/v1/inspections/{inspectionId}/reviews
+POST /api/v1/inspections/{inspectionId}/begin-review
+POST /api/v1/inspections/{inspectionId}/approve  { "comments": "opcional" }
+POST /api/v1/inspections/{inspectionId}/reject   { "reason": "obrigatorio", "itemsToCorrect": ["uuid"] }
+```
+
+Somente `SUPERVISOR` acessa esses endpoints. `begin-review` exige `SUBMITTED`; aprovar ou reprovar exige `UNDER_REVIEW`, e qualquer outro estado responde `409 INSPECTION_INVALID_TRANSITION`. A reprovacao sem motivo responde `422 INSPECTION_REJECTION_REASON_REQUIRED`, e cada id de `itemsToCorrect` precisa pertencer ao snapshot da inspecao.
+
+Cada decisao cria um registro proprio em `inspection_reviews` (`V19__create_inspection_reviews.sql`) com revisor, data do servidor, motivo, comentario e `review_cycle` sequencial por inspecao; os itens a corrigir ficam em `inspection_review_items`. O banco garante um unico registro por ciclo e o motivo obrigatorio na reprovacao. A aprovacao grava `approved_at` e bloqueia respostas, evidencias e nao conformidades. Os eventos `REVIEW_STARTED`, `INSPECTION_APPROVED` e `INSPECTION_REJECTED` sao registrados em `audit_events`. Nao existe endpoint para o supervisor alterar respostas do tecnico.
+
 ### Push de sincronizacao offline
 
 O aplicativo envia operacoes acumuladas offline por `POST /api/v1/mobile/sync/push`. O lote aceita no maximo `APP_SYNC_MAX_OPERATIONS` operacoes (100 por padrao); acima disso a API responde `413 SYNC_BATCH_TOO_LARGE`. Cada operacao precisa de `operationId`, `entityType`, `entityId`, `operationType`, `baseVersion`, dependencias opcionais e um payload que identifique a `inspectionId`.
