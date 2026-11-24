@@ -2,16 +2,17 @@ services:
   db:
     image: postgres:16-alpine
     container_name: fieldops-db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: fieldops
-      POSTGRES_USER: fieldops
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:?defina DB_USER no .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - fieldops-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U fieldops" ]
+      test: [ "CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d fieldops" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -19,15 +20,21 @@ services:
   api:
     build: .
     container_name: fieldops-api
+    restart: unless-stopped
     ports:
       - "8080:8080"
-    env_file:
-      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-demo}
+      DB_URL: jdbc:postgresql://db:5432/fieldops
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - ./uploads:/app/uploads
+      - fieldops-evidence:/app/evidence
 
 volumes:
   fieldops-pgdata:
+  fieldops-evidence:
