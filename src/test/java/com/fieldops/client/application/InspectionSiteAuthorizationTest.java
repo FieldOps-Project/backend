@@ -16,6 +16,7 @@ import com.fieldops.client.infrastructure.persistence.InspectionSiteRepository;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionItemSnapshotRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionReviewRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionResponseRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionEvidenceRepository;
 import com.fieldops.inspection.infrastructure.persistence.NonConformityRepository;
@@ -96,6 +97,9 @@ class InspectionSiteAuthorizationTest {
 
     @MockitoBean
     private InspectionRepository inspectionRepository;
+
+    @MockitoBean
+    private InspectionReviewRepository inspectionReviewRepository;
 
     @MockitoBean
     private InspectionItemSnapshotRepository inspectionItemSnapshotRepository;
