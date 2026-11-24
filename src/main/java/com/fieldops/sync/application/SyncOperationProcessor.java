@@ -247,14 +247,10 @@ public class SyncOperationProcessor {
     }
 
     private void lock(UUID operationId) {
-        long key1 = operationId.getMostSignificantBits();
-        long key2 = operationId.getLeastSignificantBits();
+        long key = operationId.getMostSignificantBits() ^ operationId.getLeastSignificantBits();
         jdbcTemplate.query(
-                "SELECT pg_advisory_xact_lock(?, ?)",
-                statement -> {
-                    statement.setLong(1, key1);
-                    statement.setLong(2, key2);
-                },
+                "SELECT pg_advisory_xact_lock(?)",
+                statement -> statement.setLong(1, key),
                 resultSet -> null
         );
     }
