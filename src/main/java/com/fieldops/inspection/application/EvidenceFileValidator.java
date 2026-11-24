@@ -46,6 +46,14 @@ public class EvidenceFileValidator {
         return new ValidatedEvidenceFile(content, contentType.toLowerCase(), extension(contentType));
     }
 
+    /** Checks the declared format of a file that will be sent later and returns its storage extension. */
+    public String requireSupportedType(String contentType) {
+        if (!"image/jpeg".equalsIgnoreCase(contentType) && !"image/png".equalsIgnoreCase(contentType)) {
+            throw unsupported("Only JPEG and PNG evidence files are supported");
+        }
+        return extension(contentType);
+    }
+
     private boolean matchesSignature(byte[] content, String contentType) {
         if ("image/jpeg".equalsIgnoreCase(contentType)) {
             return content.length >= 3 && (content[0] & 0xff) == 0xff

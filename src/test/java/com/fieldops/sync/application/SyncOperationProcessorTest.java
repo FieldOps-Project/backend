@@ -4,6 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.fieldops.inspection.application.InspectionEvidenceService;
 import com.fieldops.inspection.application.InspectionResponseService;
 import com.fieldops.inspection.application.NonConformityService;
+import com.fieldops.inspection.domain.model.InspectionEvidence;
 import com.fieldops.inspection.domain.model.InspectionResponse;
 import com.fieldops.sync.domain.model.SyncOperationResultStatus;
 import com.fieldops.sync.domain.model.SyncProcessedOperation;
@@ -119,6 +120,53 @@ class SyncOperationProcessorTest {
         assertThat(result.status()).isEqualTo(SyncOperationResultStatus.APPLIED);
         assertThat(result.entityVersion()).isEqualTo(1);
         verify(responseService).applyFromSynchronization(eq(inspectionId), any());
+    }
+
+    @Test
+    void appliesEvidenceMetadataWithoutWaitingForTheFile() {
+        UUID operationId = UUID.randomUUID();
+        UUID inspectionId = UUID.randomUUID();
+        String checksum = "a".repeat(64);
+        InspectionEvidence evidence = org.mockito.Mockito.mock(InspectionEvidence.class);
+        when(evidence.getVersion()).thenReturn(0);
+        when(processedOperationRepository.findById(operationId)).thenReturn(Optional.empty());
+        when(processedOperationRepository.saveAndFlush(any(SyncProcessedOperation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(evidenceService.registerFromSynchronization(eq(inspectionId), any(), eq("image/jpeg"), eq(2048L),
+                eq(checksum))).thenReturn(evidence);
+
+        var payload = new ObjectMapper().createObjectNode()
+                .put("inspectionId", inspectionId.toString())
+                .put("type", "PHOTO")
+                .put("mimeType", "image/jpeg")
+                .put("sizeBytes", 2048)
+                .put("checksum", checksum);
+        SyncOperationResult result = processor.process(UUID.randomUUID(), UUID.randomUUID(), new SyncOperationRequest(
+                operationId, "INSPECTION_EVIDENCE", UUID.randomUUID(), "CREATE", 0, List.of(), payload
+        ));
+
+        assertThat(result.status()).isEqualTo(SyncOperationResultStatus.APPLIED);
+        verify(evidenceService, never()).uploadFromSynchronization(any(), any(), any(), any());
+    }
+
+    @Test
+    void rejectsEvidenceMetadataWithoutChecksum() {
+        UUID operationId = UUID.randomUUID();
+        when(processedOperationRepository.findById(operationId)).thenReturn(Optional.empty());
+        when(processedOperationRepository.saveAndFlush(any(SyncProcessedOperation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var payload = new ObjectMapper().createObjectNode()
+                .put("inspectionId", UUID.randomUUID().toString())
+                .put("mimeType", "image/jpeg")
+                .put("sizeBytes", 2048);
+        SyncOperationResult result = processor.process(UUID.randomUUID(), UUID.randomUUID(), new SyncOperationRequest(
+                operationId, "INSPECTION_EVIDENCE", UUID.randomUUID(), "CREATE", 0, List.of(), payload
+        ));
+
+        assertThat(result.status()).isEqualTo(SyncOperationResultStatus.REJECTED);
+        assertThat(result.errorCode()).isEqualTo("EVIDENCE_FILE_DESCRIPTION_REQUIRED");
+        verifyNoInteractions(evidenceService);
     }
 
     private SyncOperationRequest operation(UUID id, String entityType) {

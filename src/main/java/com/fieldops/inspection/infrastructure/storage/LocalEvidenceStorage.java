@@ -8,6 +8,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
 @Component
@@ -30,6 +31,23 @@ public class LocalEvidenceStorage implements EvidenceStorage {
                 Files.write(target, content, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
             } catch (FileAlreadyExistsException ignored) {
                 // The database idempotency key already owns this object.
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to persist evidence object", exception);
+        }
+    }
+
+    @Override
+    public void replace(String storageKey, byte[] content) {
+        Path target = resolve(storageKey);
+        try {
+            Files.createDirectories(target.getParent());
+            Path temporary = Files.createTempFile(target.getParent(), ".upload-", ".tmp");
+            try {
+                Files.write(temporary, content, StandardOpenOption.WRITE);
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(temporary);
             }
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to persist evidence object", exception);

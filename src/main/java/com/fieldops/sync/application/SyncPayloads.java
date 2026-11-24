@@ -53,6 +53,8 @@ final class SyncPayloads {
             BigDecimal latitude,
             BigDecimal longitude,
             BigDecimal accuracyMeters,
+            Long sizeBytes,
+            String checksum,
             String contentBase64
     ) {
     }
