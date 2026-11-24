@@ -136,6 +136,14 @@ O tecnico assume a correcao de uma inspecao `REJECTED` de forma explicita com `P
 
 Depois da reabertura, se a ultima reprovacao listou `itemsToCorrect`, somente esses itens aceitam respostas (`422 INSPECTION_ITEM_NOT_IN_CORRECTION`); sem a lista, toda a inspecao volta a ser editavel. Antes de sobrescrever uma resposta, o servidor registra `RESPONSE_UPDATED` com o valor anterior e o novo. O detalhe mobile traz em `review` o motivo e os itens da ultima reprovacao enquanto a correcao estiver pendente, e o novo envio gera um novo ciclo de revisao.
 
+### Auditoria e historico da inspecao
+
+`AuditEventService` e o unico ponto de escrita de `audit_events`. Os casos de uso de inspecao chamam `recordInspectionEvent`, que grava autor, acao, entidade, `inspection_id`, horario do servidor, horario do dispositivo quando o evento veio do campo (`device_occurred_at`), o `X-Request-Id` da requisicao (`request_id`) e, na sincronizacao, o `device_id`. Os valores anterior e novo usam apenas campos permitidos e nunca incluem senha, token ou conteudo de arquivo.
+
+`V20__extend_audit_events.sql` acrescenta essas colunas, vincula os eventos antigos a sua inspecao, cria os indices por inspecao, horario e request e bloqueia `UPDATE`, `DELETE` e `TRUNCATE` na tabela por trigger. Nao existe endpoint de alteracao ou exclusao de evento.
+
+`GET /api/v1/inspections/{id}/history` devolve a linha do tempo ordenada por `occurred_at`, com autor, acao, horario do servidor e do dispositivo. O tecnico so consulta o historico das proprias inspecoes; ADMIN e SUPERVISOR consultam qualquer inspecao. Os autores sao carregados em uma unica consulta.
+
 ### Push de sincronizacao offline
 
 O aplicativo envia operacoes acumuladas offline por `POST /api/v1/mobile/sync/push`. O lote aceita no maximo `APP_SYNC_MAX_OPERATIONS` operacoes (100 por padrao); acima disso a API responde `413 SYNC_BATCH_TOO_LARGE`. Cada operacao precisa de `operationId`, `entityType`, `entityId`, `operationType`, `baseVersion`, dependencias opcionais e um payload que identifique a `inspectionId`.
