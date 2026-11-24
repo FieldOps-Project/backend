@@ -24,6 +24,46 @@ docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -e TESTCONTAINERS_
   -v "${PWD}:/app" -v fieldops-m2:/root/.m2 -w /app maven:3.9-eclipse-temurin-21 mvn -B test
 ```
 
+## Dados de demonstracao
+
+O profile `demo` acrescenta `classpath:db/demo` as locations do Flyway e aplica `db/demo/R__demo_seed.sql`
+depois das migracoes de esquema de `db/migration`. Nenhum outro profile carrega o seed, entao ele nunca
+chega a producao. Para subir com o cenario:
+
+```text
+SPRING_PROFILES_ACTIVE=demo JWT_SECRET=<32+ caracteres> DB_URL=jdbc:postgresql://localhost:5433/fieldops ./mvnw spring-boot:run
+```
+
+Usuarios (senha de demonstracao, fraca de proposito, igual para os tres: `Demo@1234`):
+
+| E-mail | Perfil |
+| --- | --- |
+| `admin@fieldops.local` | ADMIN |
+| `supervisor@fieldops.local` | SUPERVISOR |
+| `tecnico@fieldops.local` | TECHNICIAN |
+
+Cenario:
+
+- Cliente `Industria ABC`, locais `Fabrica Sorocaba` e `Unidade Itu`.
+- Equipamentos `Gerador GD-001` (QR Code `FIELDOPS-GD-001`), `Empilhadeira EMP-01` (`FIELDOPS-EMP-01`) e
+  `Extintor EXT-15` (`FIELDOPS-EXT-15`). O QR do gerador para imprimir ou exibir em tela esta em
+  [docs/demo/qr-gerador-gd-001.svg](docs/demo/qr-gerador-gd-001.svg).
+- Modelo `Checklist de Inspecao de Geradores`, versao 1 publicada, baseado no Anexo C, com quatro secoes e
+  dez itens cobrindo os sete tipos de resposta.
+- Cinco inspecoes do gerador atribuidas ao tecnico: `ASSIGNED` (a da demonstracao, agendada para o dia em
+  que o seed rodou), `IN_PROGRESS` com a primeira secao respondida, `SUBMITTED` aguardando revisao,
+  `APPROVED` com uma nao conformidade aberta e `REJECTED` com motivo e o item do horimetro a corrigir.
+
+O seed usa ids fixos e `ON CONFLICT DO NOTHING`: rodar de novo nao duplica registros e tambem nao desfaz o
+que foi alterado num ensaio. As inspecoes do seed nao tem eventos de auditoria, entao o historico delas
+comeca na primeira acao feita pela API.
+
+Para resetar o cenario do zero, recrie o banco e suba a API de novo no profile `demo`:
+
+```text
+psql -h localhost -p 5433 -U fieldops -d fieldops -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+```
+
 ## Inspecoes
 
 `V11__create_inspections.sql` cria `inspections` e `inspection_item_snapshots` (documento 10, 10.8). O banco garante, alem da aplicacao:

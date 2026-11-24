@@ -90,6 +90,9 @@ spring:
       on-profile: demo
   jpa:
     show-sql: false
+  flyway:
+    # Demo seed (db/demo) runs after the schema migrations, only in this profile.
+    locations: classpath:db/migration,classpath:db/demo
 app:
   cors:
     allowed-origins: http://localhost:4200,http://localhost:3000
