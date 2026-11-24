@@ -1,6 +1,6 @@
 package com.fieldops.inspection.application;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.auth.infrastructure.security.AuthenticatedUserResolver;
 import com.fieldops.auth.infrastructure.security.AuthorizationPolicies;
 import com.fieldops.inspection.domain.model.Inspection;

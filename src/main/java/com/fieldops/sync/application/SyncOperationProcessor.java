@@ -1,7 +1,7 @@
 package com.fieldops.sync.application;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.fieldops.inspection.application.InspectionEvidenceService;
 import com.fieldops.inspection.application.InspectionResponseService;
 import com.fieldops.inspection.application.NonConformityService;
@@ -205,7 +205,7 @@ public class SyncOperationProcessor {
         }
         try {
             return objectMapper.treeToValue(operation.payload(), type);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new InvalidRequestException("SYNC_PAYLOAD_INVALID", "The synchronization payload is invalid");
         }
     }

@@ -1,7 +1,7 @@
 package com.fieldops.inspection.presentation.dto;
 
 import com.fieldops.inspection.domain.model.ResponseType;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import java.util.UUID;
 
