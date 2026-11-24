@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -170,7 +171,7 @@ public class SyncChangeReader {
         statement.setObject(index++, technicianId);
         statement.setObject(index++, technicianId);
         if (cursor != null) {
-            statement.setObject(index++, cursor.changedAt());
+            statement.setObject(index++, cursor.changedAt().atOffset(ZoneOffset.UTC));
             statement.setObject(index++, cursor.entityId());
         }
         statement.setInt(index, limit);
