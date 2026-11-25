@@ -39,7 +39,24 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("FieldOps API")
                         .version("v1")
-                        .description("Contrato inicial da API FieldOps para mobile e painel.")
+                        .description("""
+                                API REST da plataforma FieldOps para planejamento, execução em campo, sincronização offline e revisão de inspeções técnicas.
+
+                                ## Máquina de Estados da Inspeção
+                                - **Estados:** `DRAFT`, `ASSIGNED`, `IN_PROGRESS`, `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `CANCELED`.
+                                - **Fluxo principal:** `DRAFT` -> `ASSIGNED` -> `IN_PROGRESS` -> `SUBMITTED` -> `UNDER_REVIEW` -> `APPROVED` ou `REJECTED`.
+                                - **Correção após reprovação:** `REJECTED` -> (`POST /inspections/{id}/reopen`) -> `IN_PROGRESS` -> `SUBMITTED`.
+                                - **Cancelamento:** `ASSIGNED`, `IN_PROGRESS` e `REJECTED` podem transicionar para `CANCELED` com motivo obrigatório.
+
+                                ## Contrato de Sincronização Offline
+                                - **Push (`POST /api/v1/mobile/sync/push`):** recebe lote ordenado por `dependsOn` (limite configurável, padrão 100), com idempotência por `operationId`.
+                                - **Estados por operação:** `APPLIED`, `ALREADY_APPLIED`, `REJECTED`, `CONFLICT`, `DEPENDENCY_FAILED`.
+                                - **Pull (`GET /api/v1/mobile/sync/pull`):** utiliza cursor opaco baseado em `(updatedAt, entityId)` para retorno incremental no escopo do técnico.
+
+                                ## Política de Conflitos
+                                - Divergências entre `baseVersion` e a versão atual do servidor retornam `CONFLICT` (`SYNC_VERSION_CONFLICT`) com `entityVersion` e `serverState` sem sobrescrever o servidor nem descartar o dado local.
+                                - Inspeções `APPROVED` (RN-076) ou `CANCELED` (RN-077) no servidor têm precedência e rejeitam mutações tardias com `CONFLICT` explícito.
+                                """)
                         .contact(new Contact().name("FieldOps Project")))
                 .servers(List.of(
                         new Server().url("http://localhost:8080").description("Local"),
@@ -212,8 +229,8 @@ public class OpenApiConfig {
         return new ObjectSchema()
                 .addProperties("content", new ArraySchema().items(new ObjectSchema()
                         .addProperties("id", new StringSchema().format("uuid"))
-                        .addProperties("status", new StringSchema().example("PENDING"))
-                        .addProperties("scheduledAt", new StringSchema().format("date-time"))))
+                        .addProperties("status", new StringSchema().example("ASSIGNED"))
+                        .addProperties("scheduledFor", new StringSchema().format("date-time"))))
                 .addProperties("page", new IntegerSchema().example(0))
                 .addProperties("size", new IntegerSchema().example(20))
                 .addProperties("totalElements", new IntegerSchema().format("int64").example(1))
