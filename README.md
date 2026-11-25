@@ -64,6 +64,42 @@ Para resetar o cenario do zero, recrie o banco e suba a API de novo no profile `
 psql -h localhost -p 5433 -U fieldops -d fieldops -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 ```
 
+Com Docker Compose, `docker compose down -v` seguido de `docker compose up -d` faz o mesmo e tambem apaga
+as evidencias enviadas.
+
+## Executando com Docker
+
+Pre-requisito: Docker com Compose v2. O `docker-compose.yml` sobe tres pecas:
+
+| Servico | Imagem | Porta no host | Dados |
+| --- | --- | --- | --- |
+| `db` | `postgres:16-alpine` | `5433` | volume `fieldops-pgdata` |
+| `api` | build do `Dockerfile` | `8080` | volume `fieldops-evidence` em `/app/evidence` (storage de evidencias) |
+
+```text
+cp .env.example .env
+docker compose up -d --build
+docker compose ps
+```
+
+A API so inicia depois do `pg_isready` do banco, aplica as migracoes do Flyway na subida e fica `healthy`
+quando `GET /actuator/health` responde `UP`. Swagger em `http://localhost:8080/swagger-ui.html`.
+Os dois servicos usam `restart: unless-stopped`.
+
+Variaveis lidas do `.env` (nenhum valor fica na imagem nem no compose versionado):
+
+| Variavel | Obrigatoria | Uso |
+| --- | --- | --- |
+| `DB_USER` | sim | usuario do PostgreSQL, usado pelo banco e pela API |
+| `DB_PASSWORD` | sim | senha do PostgreSQL |
+| `JWT_SECRET` | sim | segredo HMAC dos tokens, pelo menos 32 caracteres |
+| `SPRING_PROFILES_ACTIVE` | nao (padrao `demo`) | `demo` carrega o cenario de demonstracao |
+
+Os valores do `.env.example` sao de demonstracao; troque `DB_PASSWORD` e `JWT_SECRET` em qualquer outro uso.
+
+A imagem final usa somente o JRE e roda como o usuario `fieldops`, sem root. `docker compose down` preserva
+os volumes; `docker compose down -v` apaga banco e evidencias. Logs: `docker compose logs -f api`.
+
 ## Inspecoes
 
 `V11__create_inspections.sql` cria `inspections` e `inspection_item_snapshots` (documento 10, 10.8). O banco garante, alem da aplicacao:
