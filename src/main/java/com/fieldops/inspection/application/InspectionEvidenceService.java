@@ -123,7 +123,10 @@ public class InspectionEvidenceService {
             if (!existing.getInspectionId().equals(inspectionId)) {
                 throw new ConflictException("EVIDENCE_ID_REUSED", "The evidence id is already linked to another inspection");
             }
-            return existing.isDeleted() ? existing : receiveFile(existing, content);
+            if (existing.isDeleted()) {
+                throw new ConflictException("EVIDENCE_DELETED_CONFLICT", "The evidence was deleted on the server");
+            }
+            return receiveFile(existing, content);
         }
 
         validateResponseLink(inspectionId, metadata.responseId());
@@ -164,11 +167,37 @@ public class InspectionEvidenceService {
             long sizeBytes,
             String checksum
     ) {
+        return registerFromSynchronization(inspectionId, metadata, mimeType, sizeBytes, checksum, null);
+    }
+
+    /**
+     * Applies evidence metadata from synchronization, checking {@code baseVersion} and deletion
+     * state if the evidence already exists on the server.
+     */
+    @Transactional
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public InspectionEvidence registerFromSynchronization(
+            UUID inspectionId,
+            EvidenceMetadataRequest metadata,
+            String mimeType,
+            long sizeBytes,
+            String checksum,
+            Integer baseVersion
+    ) {
         assertEditable(loadForTechnician(inspectionId));
         InspectionEvidence existing = evidenceRepository.findById(metadata.id()).orElse(null);
         if (existing != null) {
             if (!existing.getInspectionId().equals(inspectionId)) {
                 throw new ConflictException("EVIDENCE_ID_REUSED", "The evidence id is already linked to another inspection");
+            }
+            if (existing.isDeleted()) {
+                throw new ConflictException("EVIDENCE_DELETED_CONFLICT", "The evidence was deleted on the server");
+            }
+            if (baseVersion != null && baseVersion != existing.getVersion()) {
+                throw new ConflictException(
+                        "EVIDENCE_VERSION_CONFLICT",
+                        "The evidence version is stale; reload the inspection before retrying"
+                );
             }
             return existing;
         }
