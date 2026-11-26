@@ -10,9 +10,11 @@ import com.fieldops.equipment.domain.model.Equipment;
 import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
 import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.domain.model.InspectionStatus;
+import com.fieldops.inspection.infrastructure.persistence.InspectionAnsweredItemsProjection;
 import com.fieldops.inspection.infrastructure.persistence.InspectionItemSnapshotRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionProgressProjection;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionResponseRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionSpecifications;
 import com.fieldops.shared.domain.exception.InvalidRequestException;
 import com.fieldops.shared.presentation.dto.PaginationDefaults;
@@ -47,6 +49,7 @@ public class InspectionListService {
     private final ObjectProvider<InspectionRepository> inspectionRepositoryProvider;
     private final InspectionRepository directInspectionRepository;
     private final InspectionItemSnapshotRepository snapshotRepository;
+    private final InspectionResponseRepository responseRepository;
     private final ClientRepository clientRepository;
     private final InspectionSiteRepository inspectionSiteRepository;
     private final EquipmentRepository equipmentRepository;
@@ -57,6 +60,7 @@ public class InspectionListService {
     public InspectionListService(
             ObjectProvider<InspectionRepository> inspectionRepositoryProvider,
             InspectionItemSnapshotRepository snapshotRepository,
+            InspectionResponseRepository responseRepository,
             ClientRepository clientRepository,
             InspectionSiteRepository inspectionSiteRepository,
             EquipmentRepository equipmentRepository,
@@ -66,6 +70,7 @@ public class InspectionListService {
         this.inspectionRepositoryProvider = inspectionRepositoryProvider;
         this.directInspectionRepository = null;
         this.snapshotRepository = snapshotRepository;
+        this.responseRepository = responseRepository;
         this.clientRepository = clientRepository;
         this.inspectionSiteRepository = inspectionSiteRepository;
         this.equipmentRepository = equipmentRepository;
@@ -77,6 +82,7 @@ public class InspectionListService {
     public InspectionListService(
             InspectionRepository inspectionRepository,
             InspectionItemSnapshotRepository snapshotRepository,
+            InspectionResponseRepository responseRepository,
             ClientRepository clientRepository,
             InspectionSiteRepository inspectionSiteRepository,
             EquipmentRepository equipmentRepository,
@@ -86,6 +92,7 @@ public class InspectionListService {
         this.inspectionRepositoryProvider = null;
         this.directInspectionRepository = inspectionRepository;
         this.snapshotRepository = snapshotRepository;
+        this.responseRepository = responseRepository;
         this.clientRepository = clientRepository;
         this.inspectionSiteRepository = inspectionSiteRepository;
         this.equipmentRepository = equipmentRepository;
@@ -117,6 +124,7 @@ public class InspectionListService {
                     Map.of(),
                     Map.of(),
                     Map.of(),
+                    Map.of(),
                     Instant.now()
             ));
         }
@@ -128,6 +136,12 @@ public class InspectionListService {
                 .collect(Collectors.toMap(
                         InspectionProgressProjection::getInspectionId,
                         projection -> Math.toIntExact(projection.getApplicableItems())
+                ));
+
+        Map<UUID, Integer> answeredItems = responseRepository.countAnsweredItems(inspectionIds).stream()
+                .collect(Collectors.toMap(
+                        InspectionAnsweredItemsProjection::getInspectionId,
+                        projection -> Math.toIntExact(projection.getAnsweredItems())
                 ));
 
         Set<UUID> clientIds = page.getContent().stream().map(Inspection::getClientId).collect(Collectors.toSet());
@@ -154,6 +168,7 @@ public class InspectionListService {
                 equipment,
                 technicians,
                 applicableItems,
+                answeredItems,
                 now
         ));
     }
@@ -165,6 +180,7 @@ public class InspectionListService {
             Map<UUID, Equipment> equipment,
             Map<UUID, User> technicians,
             Map<UUID, Integer> applicableItems,
+            Map<UUID, Integer> answeredItems,
             Instant now
     ) {
         Client client = clients.get(inspection.getClientId());
@@ -172,6 +188,7 @@ public class InspectionListService {
         Equipment selectedEquipment = equipment.get(inspection.getEquipmentId());
         User technician = technicians.get(inspection.getTechnicianId());
         int totalItems = applicableItems.getOrDefault(inspection.getId(), 0);
+        int answered = answeredItems.getOrDefault(inspection.getId(), 0);
 
         return new InspectionListItem(
                 inspection.getId(),
@@ -187,7 +204,7 @@ public class InspectionListService {
                 inspection.getPriority(),
                 inspection.getStatus(),
                 inspection.getScheduledFor(),
-                0,
+                answered,
                 totalItems,
                 inspection.getUpdatedAt(),
                 isOverdue(inspection, now)

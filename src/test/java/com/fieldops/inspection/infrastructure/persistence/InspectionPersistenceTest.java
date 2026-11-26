@@ -251,6 +251,40 @@ class InspectionPersistenceTest {
     }
 
     @Test
+    void countsAnsweredItemsPerInspectionInOneGroupedQuery() {
+        Inspection answeredTwice = inspectionRepository.saveAndFlush(newInspection(null));
+        Inspection untouched = inspectionRepository.saveAndFlush(newInspection(null));
+        List<InspectionItemSnapshot> snapshots = snapshotRepository.findByInspectionIdOrderBySectionOrderAscItemOrderAsc(
+                answeredTwice.getId()
+        );
+        for (InspectionItemSnapshot snapshot : snapshots.subList(0, 2)) {
+            responseRepository.saveAndFlush(InspectionResponse.create(
+                    UUID.randomUUID(),
+                    answeredTwice.getId(),
+                    snapshot.getId(),
+                    technicianId,
+                    new InspectionResponseValue(null, null, null, null, null,
+                            InspectionResponseConformity.CONFORMING),
+                    null,
+                    Instant.parse("2026-08-01T13:12:30Z"),
+                    Instant.parse("2026-08-01T16:12:30Z"),
+                    0
+            ));
+        }
+
+        Map<UUID, Long> counts = responseRepository
+                .countAnsweredItems(List.of(answeredTwice.getId(), untouched.getId()))
+                .stream()
+                .collect(Collectors.toMap(
+                        InspectionAnsweredItemsProjection::getInspectionId,
+                        InspectionAnsweredItemsProjection::getAnsweredItems
+                ));
+
+        assertThat(counts).containsOnlyKeys(answeredTwice.getId()).containsEntry(answeredTwice.getId(), 2L);
+        assertThat(responseRepository.countAnsweredItems(List.of(untouched.getId()))).isEmpty();
+    }
+
+    @Test
     void persistsEvidenceMetadataAndKeepsItAfterSoftDelete() {
         Inspection inspection = inspectionRepository.saveAndFlush(newInspection(null));
         UUID evidenceId = UUID.randomUUID();
