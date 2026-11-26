@@ -25,6 +25,9 @@
     "name" : "Non-conformities",
     "description" : "Inspection non-conformity records and evidence rules."
   }, {
+    "name" : "Inspection reports",
+    "description" : "PDF exports of completed inspection snapshots."
+  }, {
     "name" : "Equipment",
     "description" : "Equipment management and QR Code lookup endpoints."
   }, {
@@ -4646,6 +4649,64 @@
             "description" : "Inspection is not assigned to this technician",
             "content" : {
               "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/inspections/{id}/report.pdf" : {
+      "get" : {
+        "tags" : [ "Inspection reports" ],
+        "summary" : "Export an inspection report as PDF",
+        "description" : "Exports the immutable checklist snapshot, answers, evidence images, non-conformities and latest review decision. Access follows the inspection scope.",
+        "operationId" : "export",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "PDF report generated",
+            "content" : {
+              "application/pdf" : { }
+            }
+          },
+          "401" : {
+            "description" : "Missing or invalid token",
+            "content" : {
+              "application/pdf" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "application/pdf" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Inspection not found in the authenticated scope",
+            "content" : {
+              "application/pdf" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiError"
                 }
