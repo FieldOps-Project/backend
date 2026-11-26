@@ -176,7 +176,7 @@ Cada request envia somente o horario registrado no dispositivo e, opcionalmente,
 
 ### Respostas do checklist
 
-O tecnico consulta e sincroniza as respostas do snapshot por:
+O tecnico consulta e sincroniza as respostas do snapshot por (o supervisor so le, e apenas das inspecoes sob sua responsabilidade, para conduzir a revisao; o administrador nao acessa):
 
 ```text
 GET  /api/v1/inspections/{inspectionId}/responses

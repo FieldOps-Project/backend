@@ -4749,7 +4749,7 @@
       "get" : {
         "tags" : [ "Inspections" ],
         "summary" : "List inspection responses",
-        "description" : "Returns the current typed response for each answered snapshot item.",
+        "description" : "Returns the current typed response for each answered snapshot item. The assigned technician and the inspection's supervisor can read them; only the technician can write.",
         "operationId" : "listResponses",
         "parameters" : [ {
           "name" : "inspectionId",
@@ -4782,7 +4782,7 @@
             }
           },
           "404" : {
-            "description" : "Inspection is not assigned to this technician",
+            "description" : "Inspection is not assigned to this technician or supervisor",
             "content" : {
               "*/*" : {
                 "schema" : {

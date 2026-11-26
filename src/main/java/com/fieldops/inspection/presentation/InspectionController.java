@@ -436,17 +436,19 @@ public class InspectionController {
 
     @GetMapping("/inspections/{inspectionId}/responses")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_RESPONSES_READ)
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
             summary = "List inspection responses",
-            description = "Returns the current typed response for each answered snapshot item.",
+            description = "Returns the current typed response for each answered snapshot item. The assigned "
+                    + "technician and the inspection's supervisor can read them; only the technician can write.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Responses returned",
                             content = @Content(schema = @Schema(implementation = InspectionResponseResponse.class))),
                     @ApiResponse(responseCode = "403", description = "Access denied",
                             content = @Content(schema = @Schema(implementation = ApiError.class))),
-                    @ApiResponse(responseCode = "404", description = "Inspection is not assigned to this technician",
+                    @ApiResponse(responseCode = "404",
+                            description = "Inspection is not assigned to this technician or supervisor",
                             content = @Content(schema = @Schema(implementation = ApiError.class)))
             }
     )

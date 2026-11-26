@@ -5,6 +5,7 @@ import com.fieldops.auth.infrastructure.persistence.RefreshTokenRepository;
 import com.fieldops.client.infrastructure.persistence.ClientRepository;
 import com.fieldops.client.infrastructure.persistence.InspectionSiteRepository;
 import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
+import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.infrastructure.persistence.InspectionEvidenceRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionItemSnapshotRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
@@ -42,6 +43,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -226,6 +229,39 @@ class AcSecurityVerificationTest {
                         .header(HttpHeaders.ORIGIN, "https://evil.example.com")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
                 .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+
+    @Test
+    void supervisorReadsResponsesOnlyOfTheInspectionTheySuperviseAndNeverWritesThem() throws Exception {
+        Authentication supervisorAuth = authAs(UserRole.SUPERVISOR);
+        UUID supervisorId = ((User) supervisorAuth.getPrincipal()).getId();
+        UUID supervisedId = UUID.randomUUID();
+        UUID otherInspectionId = UUID.randomUUID();
+        when(inspectionRepository.findByIdAndSupervisorId(eq(supervisedId), eq(supervisorId)))
+                .thenReturn(Optional.of(mock(Inspection.class)));
+        String payload = "{\"id\":\"" + UUID.randomUUID() + "\",\"inspectionItemId\":\"" + UUID.randomUUID()
+                + "\",\"valueBoolean\":true,\"answeredAtDevice\":\"2026-11-23T10:02:00Z\",\"baseVersion\":0}";
+
+        mockMvc.perform(get("/api/v1/inspections/" + supervisedId + "/responses")
+                        .with(authentication(supervisorAuth)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+
+        mockMvc.perform(get("/api/v1/inspections/" + otherInspectionId + "/responses")
+                        .with(authentication(supervisorAuth)))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(put("/api/v1/inspections/" + supervisedId + "/responses/" + UUID.randomUUID())
+                        .with(authentication(supervisorAuth))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/inspections/" + supervisedId + "/responses:batch")
+                        .with(authentication(supervisorAuth))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"responses\":[" + payload + "]}"))
+                .andExpect(status().isForbidden());
     }
 
     private Authentication authAs(UserRole role) {
