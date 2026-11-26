@@ -35,9 +35,9 @@ public interface InspectionRepository extends JpaRepository<Inspection, UUID>, J
     @Query("""
             select i.status as status, count(i.id) as count
             from Inspection i
-            where (:periodStart is null or i.scheduledFor >= :periodStart)
-              and (:periodEnd is null or i.scheduledFor <= :periodEnd)
-              and (:supervisorId is null or i.supervisorId = :supervisorId)
+            where (cast(:periodStart as java.time.Instant) is null or i.scheduledFor >= :periodStart)
+              and (cast(:periodEnd as java.time.Instant) is null or i.scheduledFor <= :periodEnd)
+              and (cast(:supervisorId as java.util.UUID) is null or i.supervisorId = :supervisorId)
             group by i.status
             order by i.status
             """)
@@ -50,9 +50,9 @@ public interface InspectionRepository extends JpaRepository<Inspection, UUID>, J
     @Query("""
             select count(i.id)
             from Inspection i
-            where (:periodStart is null or i.scheduledFor >= :periodStart)
-              and (:periodEnd is null or i.scheduledFor <= :periodEnd)
-              and (:supervisorId is null or i.supervisorId = :supervisorId)
+            where (cast(:periodStart as java.time.Instant) is null or i.scheduledFor >= :periodStart)
+              and (cast(:periodEnd as java.time.Instant) is null or i.scheduledFor <= :periodEnd)
+              and (cast(:supervisorId as java.util.UUID) is null or i.supervisorId = :supervisorId)
             """)
     long countForDashboard(
             @Param("periodStart") java.time.Instant periodStart,
@@ -63,9 +63,9 @@ public interface InspectionRepository extends JpaRepository<Inspection, UUID>, J
     @Query("""
             select count(i.id)
             from Inspection i
-            where (:periodStart is null or i.scheduledFor >= :periodStart)
-              and (:periodEnd is null or i.scheduledFor <= :periodEnd)
-              and (:supervisorId is null or i.supervisorId = :supervisorId)
+            where (cast(:periodStart as java.time.Instant) is null or i.scheduledFor >= :periodStart)
+              and (cast(:periodEnd as java.time.Instant) is null or i.scheduledFor <= :periodEnd)
+              and (cast(:supervisorId as java.util.UUID) is null or i.supervisorId = :supervisorId)
               and i.scheduledFor < :now
               and i.status in :overdueStatuses
             """)
