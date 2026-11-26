@@ -67,6 +67,9 @@
     "name" : "Inspection reviews",
     "description" : "Supervisor review cycles: begin, approve and reject."
   }, {
+    "name" : "Mobile push devices",
+    "description" : "Technician-owned Expo push device registrations."
+  }, {
     "name" : "CSV exports",
     "description" : "Streaming CSV exports for list views."
   } ],
@@ -84,8 +87,8 @@
                 "$ref" : "#/components/schemas/LoginRequest"
               },
               "example" : {
-                "password" : "senha-informada-pelo-usuario",
-                "email" : "tecnico@fieldops.local"
+                "email" : "tecnico@fieldops.local",
+                "password" : "senha-informada-pelo-usuario"
               }
             }
           },
@@ -2321,6 +2324,64 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/SyncPushResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/mobile/devices" : {
+      "post" : {
+        "tags" : [ "Mobile push devices" ],
+        "summary" : "Register a technician push device",
+        "description" : "Registers or updates one device for the authenticated technician. The token is stored server-side and is never returned.",
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterPushDeviceRequest"
+              },
+              "example" : {
+                "deviceId" : "device-7f4a",
+                "pushToken" : "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+                "platform" : "ANDROID"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Device registered",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PushDeviceResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid device registration",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Only technicians can register devices",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
                 }
               }
             }
@@ -5412,6 +5473,40 @@
           }
         }
       }
+    },
+    "/api/v1/mobile/devices/{deviceId}" : {
+      "delete" : {
+        "tags" : [ "Mobile push devices" ],
+        "summary" : "Remove a technician push device",
+        "description" : "Removes the device registration owned by the authenticated technician.",
+        "operationId" : "remove",
+        "parameters" : [ {
+          "name" : "deviceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Device removed"
+          },
+          "403" : {
+            "description" : "Only technicians can remove devices",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
     }
   },
   "components" : {
@@ -6957,6 +7052,51 @@
             "type" : "string"
           },
           "serverTime" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "RegisterPushDeviceRequest" : {
+        "type" : "object",
+        "description" : "Push registration owned by the authenticated technician.",
+        "properties" : {
+          "deviceId" : {
+            "type" : "string",
+            "example" : "device-7f4a",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "pushToken" : {
+            "type" : "string",
+            "example" : "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+            "maxLength" : 512,
+            "minLength" : 0
+          },
+          "platform" : {
+            "type" : "string",
+            "example" : "ANDROID",
+            "maxLength" : 32,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "deviceId", "platform", "pushToken" ]
+      },
+      "PushDeviceResponse" : {
+        "type" : "object",
+        "description" : "Registered device metadata. The push token is never returned.",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "deviceId" : {
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
           }

@@ -12,6 +12,7 @@ import com.fieldops.inspection.domain.model.InspectionItemSnapshot;
 import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.domain.service.InspectionStateMachine;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.notification.application.InspectionAssignedEvent;
 import com.fieldops.inspection.presentation.dto.InspectionLocationRequest;
 import com.fieldops.inspection.presentation.dto.StartInspectionRequest;
 import com.fieldops.inspection.presentation.dto.SubmitInspectionRequest;
@@ -25,6 +26,7 @@ import com.fieldops.user.domain.model.UserStatus;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,7 @@ public class InspectionTransitionService {
     private final InspectionNonConformityReader nonConformityReader;
     private final Clock clock;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Autowired
     public InspectionTransitionService(
@@ -61,7 +64,8 @@ public class InspectionTransitionService {
             UserRepository userRepository,
             InspectionStateMachine stateMachine,
             AuditEventService auditEventService,
-            AuthenticatedUserResolver authenticatedUserResolver
+            AuthenticatedUserResolver authenticatedUserResolver,
+            ApplicationEventPublisher applicationEventPublisher
     ) {
         this.inspectionRepositoryProvider = inspectionRepositoryProvider;
         this.directInspectionRepository = null;
@@ -76,6 +80,7 @@ public class InspectionTransitionService {
                 ? inspectionId -> false : availableNonConformityReader;
         this.clock = Clock.systemUTC();
         this.objectMapper = new ObjectMapper();
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     /** Constructor kept convenient for unit tests that do not start a Spring context. */
@@ -94,7 +99,8 @@ public class InspectionTransitionService {
                 authenticatedUserResolver,
                 inspectionId -> List.of(),
                 inspectionId -> false,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                event -> { }
         );
     }
 
@@ -115,7 +121,8 @@ public class InspectionTransitionService {
                 authenticatedUserResolver,
                 responseReader,
                 inspectionId -> false,
-                clock
+                clock,
+                event -> { }
         );
     }
 
@@ -129,6 +136,30 @@ public class InspectionTransitionService {
             InspectionNonConformityReader nonConformityReader,
             Clock clock
     ) {
+        this(
+                inspectionRepository,
+                userRepository,
+                stateMachine,
+                auditEventService,
+                authenticatedUserResolver,
+                responseReader,
+                nonConformityReader,
+                clock,
+                event -> { }
+        );
+    }
+
+    InspectionTransitionService(
+            InspectionRepository inspectionRepository,
+            UserRepository userRepository,
+            InspectionStateMachine stateMachine,
+            AuditEventService auditEventService,
+            AuthenticatedUserResolver authenticatedUserResolver,
+            InspectionResponseReader responseReader,
+            InspectionNonConformityReader nonConformityReader,
+            Clock clock,
+            ApplicationEventPublisher applicationEventPublisher
+    ) {
         this.inspectionRepositoryProvider = null;
         this.directInspectionRepository = inspectionRepository;
         this.userRepository = userRepository;
@@ -139,6 +170,7 @@ public class InspectionTransitionService {
         this.nonConformityReader = nonConformityReader;
         this.clock = clock;
         this.objectMapper = new ObjectMapper();
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Transactional
@@ -161,6 +193,7 @@ public class InspectionTransitionService {
                 before,
                 auditState(saved)
         );
+        applicationEventPublisher.publishEvent(new InspectionAssignedEvent(saved.getId(), technician.getId()));
         return new InspectionTransitionResult(saved, previousStatus);
     }
 

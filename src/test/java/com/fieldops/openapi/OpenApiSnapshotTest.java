@@ -13,6 +13,7 @@ import com.fieldops.inspection.infrastructure.persistence.InspectionReviewReposi
 import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVersionRepository;
 import com.fieldops.inspection.infrastructure.persistence.NonConformityRepository;
+import com.fieldops.notification.infrastructure.persistence.PushDeviceRepository;
 import com.fieldops.inspection.infrastructure.persistence.TemplateItemRepository;
 import com.fieldops.inspection.infrastructure.persistence.TemplateSectionRepository;
 import com.fieldops.sync.infrastructure.persistence.SyncProcessedOperationRepository;
@@ -70,6 +71,7 @@ class OpenApiSnapshotTest {
     @MockitoBean private InspectionResponseRepository inspectionResponseRepository;
     @MockitoBean private InspectionEvidenceRepository inspectionEvidenceRepository;
     @MockitoBean private NonConformityRepository nonConformityRepository;
+    @MockitoBean private PushDeviceRepository pushDeviceRepository;
     @MockitoBean private SyncProcessedOperationRepository syncProcessedOperationRepository;
     @MockitoBean private JdbcTemplate jdbcTemplate;
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
@@ -116,6 +118,8 @@ class OpenApiSnapshotTest {
                 "/api/v1/inspections/{id}/history",
                 "/api/v1/mobile/inspections",
                 "/api/v1/mobile/inspections/{id}",
+                "/api/v1/mobile/devices",
+                "/api/v1/mobile/devices/{deviceId}",
                 "/api/v1/mobile/sync/pull",
                 "/api/v1/mobile/sync/push"
         };
