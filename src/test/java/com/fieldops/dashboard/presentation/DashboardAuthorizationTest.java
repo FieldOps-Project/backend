@@ -6,6 +6,7 @@ import com.fieldops.dashboard.application.DashboardService;
 import com.fieldops.dashboard.application.DashboardSummary;
 import com.fieldops.dashboard.application.DashboardInspectionStatusCount;
 import com.fieldops.dashboard.application.DashboardNonConformitySeverityCount;
+import com.fieldops.inspection.application.InspectionReportService;
 import com.fieldops.client.infrastructure.persistence.ClientRepository;
 import com.fieldops.client.infrastructure.persistence.InspectionSiteRepository;
 import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
@@ -34,10 +35,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -57,6 +61,9 @@ class DashboardAuthorizationTest {
 
     @MockitoBean
     private DashboardService dashboardService;
+
+    @MockitoBean
+    private InspectionReportService inspectionReportService;
 
     @MockitoBean private UserRepository userRepository;
     @MockitoBean private RefreshTokenRepository refreshTokenRepository;
@@ -105,6 +112,21 @@ class DashboardAuthorizationTest {
     @Test
     void technicianCannotReadAdministrativeDashboard() throws Exception {
         mockMvc.perform(get("/api/v1/dashboard/inspections-by-status")
+                        .with(user("technician").roles("TECHNICIAN")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void supervisorCanExportInspectionReportAndTechnicianCannot() throws Exception {
+        byte[] pdf = "%PDF-1.7 report".getBytes(StandardCharsets.US_ASCII);
+        when(inspectionReportService.generate(any())).thenReturn(pdf);
+
+        mockMvc.perform(get("/api/v1/inspections/{id}/report.pdf", java.util.UUID.randomUUID())
+                        .with(user("supervisor").roles("SUPERVISOR")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"));
+
+        mockMvc.perform(get("/api/v1/inspections/{id}/report.pdf", java.util.UUID.randomUUID())
                         .with(user("technician").roles("TECHNICIAN")))
                 .andExpect(status().isForbidden());
     }

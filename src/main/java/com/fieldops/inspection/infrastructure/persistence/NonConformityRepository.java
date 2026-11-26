@@ -21,6 +21,8 @@ public interface NonConformityRepository extends JpaRepository<NonConformity, UU
 
     List<NonConformity> findAllByInspectionIdAndSeverity(UUID inspectionId, NonConformitySeverity severity);
 
+    List<NonConformity> findAllByInspectionIdOrderByCreatedAtAsc(UUID inspectionId);
+
     @Query("""
             select n from NonConformity n, Inspection i
             where n.inspectionId = i.id
