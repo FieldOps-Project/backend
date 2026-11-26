@@ -32,7 +32,7 @@ public interface NonConformityRepository extends JpaRepository<NonConformity, UU
               and (:status is null or n.status = :status)
               and (:clientId is null or i.clientId = :clientId)
               and (:technicianId is null or i.technicianId = :technicianId)
-              and (:supervisorId is null or i.supervisorId = :supervisorId)
+              and (cast(:supervisorId as java.util.UUID) is null or i.supervisorId = :supervisorId)
             order by n.serverReceivedAt asc
             """)
     Stream<NonConformity> streamForExport(
@@ -66,9 +66,9 @@ public interface NonConformityRepository extends JpaRepository<NonConformity, UU
             select n.severity as severity, count(n.id) as count
             from NonConformity n, Inspection i
             where n.inspectionId = i.id
-              and (:periodStart is null or i.scheduledFor >= :periodStart)
-              and (:periodEnd is null or i.scheduledFor <= :periodEnd)
-              and (:supervisorId is null or i.supervisorId = :supervisorId)
+              and (cast(:periodStart as java.time.Instant) is null or i.scheduledFor >= :periodStart)
+              and (cast(:periodEnd as java.time.Instant) is null or i.scheduledFor <= :periodEnd)
+              and (cast(:supervisorId as java.util.UUID) is null or i.supervisorId = :supervisorId)
             group by n.severity
             order by n.severity
             """)

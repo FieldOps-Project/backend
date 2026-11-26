@@ -561,6 +561,38 @@ class InspectionPersistenceTest {
     }
 
     @Test
+    void dashboardQueriesAcceptAnOpenPeriodAndNoSupervisorScope() {
+        Instant now = Instant.now();
+        Inspection scheduled = newInspection(null);
+        ReflectionTestUtils.setField(scheduled, "scheduledFor", now.minus(1, ChronoUnit.HOURS));
+        inspectionRepository.saveAndFlush(scheduled);
+
+        assertThat(inspectionRepository.countForDashboard(null, null, null)).isEqualTo(1);
+        assertThat(inspectionRepository.countByStatusForDashboard(null, null, null))
+                .singleElement()
+                .satisfies(row -> assertThat(row.getCount()).isEqualTo(1));
+        assertThat(inspectionRepository.countOverdueForDashboard(
+                null, null, null, now, List.of(InspectionStatus.ASSIGNED, InspectionStatus.IN_PROGRESS)
+        )).isEqualTo(1);
+        assertThat(nonConformityRepository.countBySeverityForDashboard(null, null, null)).isEmpty();
+    }
+
+    @Test
+    void dashboardQueriesStillFilterWhenThePeriodAndTheSupervisorAreGiven() {
+        Instant now = Instant.now();
+        Inspection scheduled = newInspection(null);
+        ReflectionTestUtils.setField(scheduled, "scheduledFor", now.minus(1, ChronoUnit.HOURS));
+        inspectionRepository.saveAndFlush(scheduled);
+
+        assertThat(inspectionRepository.countForDashboard(now.minus(2, ChronoUnit.HOURS), now, supervisorId))
+                .isEqualTo(1);
+        assertThat(inspectionRepository.countForDashboard(now.minus(2, ChronoUnit.HOURS), now, UUID.randomUUID()))
+                .isZero();
+        assertThat(inspectionRepository.countForDashboard(now.plus(1, ChronoUnit.HOURS), null, supervisorId))
+                .isZero();
+    }
+
+    @Test
     void recommendedIndexesExist() {
         List<String> indexes = jdbc.queryForList(
                 "SELECT indexname FROM pg_indexes WHERE tablename IN ('inspections', 'inspection_item_snapshots')",
