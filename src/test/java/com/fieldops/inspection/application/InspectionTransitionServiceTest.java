@@ -9,6 +9,7 @@ import com.fieldops.inspection.domain.model.InspectionTemplate;
 import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
 import com.fieldops.inspection.domain.service.InspectionStateMachine;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.notification.application.InspectionAssignedEvent;
 import com.fieldops.inspection.presentation.dto.InspectionLocationRequest;
 import com.fieldops.inspection.presentation.dto.StartInspectionRequest;
 import com.fieldops.inspection.presentation.dto.SubmitInspectionRequest;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -61,6 +63,9 @@ class InspectionTransitionServiceTest {
     @Mock
     private AuthenticatedUserResolver authenticatedUserResolver;
 
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
     private InspectionTransitionService transitionService;
     private Inspection inspection;
     private UUID inspectionId;
@@ -75,7 +80,11 @@ class InspectionTransitionServiceTest {
                 userRepository,
                 new InspectionStateMachine(),
                 auditEventService,
-                authenticatedUserResolver
+                authenticatedUserResolver,
+                inspectionIdValue -> List.of(),
+                inspectionIdValue -> false,
+                Clock.systemUTC(),
+                applicationEventPublisher
         );
 
         InspectionTemplate template = InspectionTemplate.create(
@@ -133,6 +142,7 @@ class InspectionTransitionServiceTest {
                 eq("status=DRAFT;technicianId=null;canceledBy=null;canceledAt=null;canceledReason=null"),
                 eq("status=ASSIGNED;technicianId=" + technicianId + ";canceledBy=null;canceledAt=null;canceledReason=null")
         );
+        verify(applicationEventPublisher).publishEvent(new InspectionAssignedEvent(inspectionId, technicianId));
     }
 
     @Test

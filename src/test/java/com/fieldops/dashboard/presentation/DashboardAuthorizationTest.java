@@ -21,6 +21,7 @@ import com.fieldops.inspection.infrastructure.persistence.InspectionReviewReposi
 import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVersionRepository;
 import com.fieldops.inspection.infrastructure.persistence.NonConformityRepository;
+import com.fieldops.notification.application.PushDeviceService;
 import com.fieldops.inspection.infrastructure.persistence.TemplateItemRepository;
 import com.fieldops.inspection.infrastructure.persistence.TemplateSectionRepository;
 import com.fieldops.sync.infrastructure.persistence.SyncProcessedOperationRepository;
@@ -33,6 +34,7 @@ import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.MediaType;
 
 import java.time.Instant;
 import java.util.List;
@@ -43,6 +45,9 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -69,6 +74,9 @@ class DashboardAuthorizationTest {
 
     @MockitoBean
     private InspectionCsvExportService inspectionCsvExportService;
+
+    @MockitoBean
+    private PushDeviceService pushDeviceService;
 
     @MockitoBean private UserRepository userRepository;
     @MockitoBean private RefreshTokenRepository refreshTokenRepository;
@@ -153,5 +161,37 @@ class DashboardAuthorizationTest {
         mockMvc.perform(get("/api/v1/non-conformities/export.csv")
                         .with(user("technician").roles("TECHNICIAN")))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void pushDeviceRegistrationIsTechnicianScoped() throws Exception {
+        when(pushDeviceService.register(any())).thenReturn(
+                com.fieldops.notification.domain.model.PushDevice.create(
+                        java.util.UUID.randomUUID(), "device-1", "ExponentPushToken[token]", "ANDROID"
+                )
+        );
+
+        mockMvc.perform(post("/api/v1/mobile/devices")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"deviceId":"device-1","pushToken":"ExponentPushToken[token]","platform":"ANDROID"}
+                                """)
+                        .with(user("technician").roles("TECHNICIAN")))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.deviceId").value("device-1"))
+                .andExpect(jsonPath("$.pushToken").doesNotExist());
+
+        mockMvc.perform(delete("/api/v1/mobile/devices/device-1")
+                        .with(user("technician").roles("TECHNICIAN")))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/v1/mobile/devices")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"deviceId":"device-1","pushToken":"ExponentPushToken[token]","platform":"ANDROID"}
+                                """)
+                        .with(user("supervisor").roles("SUPERVISOR")))
+                .andExpect(status().isForbidden());
     }
 }

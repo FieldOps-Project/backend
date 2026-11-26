@@ -15,6 +15,7 @@ import com.fieldops.inspection.domain.model.InspectionStatus;
 import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVersionRepository;
+import com.fieldops.notification.application.InspectionAssignedEvent;
 import com.fieldops.inspection.presentation.dto.CreateInspectionRequest;
 import com.fieldops.inspection.presentation.dto.UpdateInspectionRequest;
 import com.fieldops.shared.domain.exception.BusinessRuleException;
@@ -25,6 +26,8 @@ import com.fieldops.user.domain.model.UserRole;
 import com.fieldops.user.domain.model.UserStatus;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -50,7 +53,35 @@ public class InspectionSchedulingService {
     private final UserRepository userRepository;
     private final AuditEventService auditEventService;
     private final AuthenticatedUserResolver authenticatedUserResolver;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
+    /** Constructor used by the Spring application. */
+    @Autowired
+    public InspectionSchedulingService(
+            ObjectProvider<InspectionRepository> inspectionRepositoryProvider,
+            InspectionTemplateVersionRepository versionRepository,
+            TemplateVersionService templateVersionService,
+            ClientRepository clientRepository,
+            InspectionSiteRepository siteRepository,
+            EquipmentRepository equipmentRepository,
+            UserRepository userRepository,
+            AuditEventService auditEventService,
+            AuthenticatedUserResolver authenticatedUserResolver,
+            ApplicationEventPublisher applicationEventPublisher
+    ) {
+        this.inspectionRepository = inspectionRepositoryProvider.getIfAvailable();
+        this.versionRepository = versionRepository;
+        this.templateVersionService = templateVersionService;
+        this.clientRepository = clientRepository;
+        this.siteRepository = siteRepository;
+        this.equipmentRepository = equipmentRepository;
+        this.userRepository = userRepository;
+        this.auditEventService = auditEventService;
+        this.authenticatedUserResolver = authenticatedUserResolver;
+        this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    /** Constructor kept convenient for application-service unit tests. */
     public InspectionSchedulingService(
             ObjectProvider<InspectionRepository> inspectionRepositoryProvider,
             InspectionTemplateVersionRepository versionRepository,
@@ -62,15 +93,18 @@ public class InspectionSchedulingService {
             AuditEventService auditEventService,
             AuthenticatedUserResolver authenticatedUserResolver
     ) {
-        this.inspectionRepository = inspectionRepositoryProvider.getIfAvailable();
-        this.versionRepository = versionRepository;
-        this.templateVersionService = templateVersionService;
-        this.clientRepository = clientRepository;
-        this.siteRepository = siteRepository;
-        this.equipmentRepository = equipmentRepository;
-        this.userRepository = userRepository;
-        this.auditEventService = auditEventService;
-        this.authenticatedUserResolver = authenticatedUserResolver;
+        this(
+                inspectionRepositoryProvider,
+                versionRepository,
+                templateVersionService,
+                clientRepository,
+                siteRepository,
+                equipmentRepository,
+                userRepository,
+                auditEventService,
+                authenticatedUserResolver,
+                event -> { }
+        );
     }
 
     @Transactional
@@ -128,6 +162,7 @@ public class InspectionSchedulingService {
                     null,
                     "technicianId=" + technician.getId()
             );
+            applicationEventPublisher.publishEvent(new InspectionAssignedEvent(saved.getId(), technician.getId()));
         }
         return saved;
     }
@@ -199,6 +234,7 @@ public class InspectionSchedulingService {
                     null,
                     "technicianId=" + technician.getId()
             );
+            applicationEventPublisher.publishEvent(new InspectionAssignedEvent(saved.getId(), technician.getId()));
         }
         return saved;
     }
