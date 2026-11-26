@@ -28,6 +28,8 @@ import com.fieldops.shared.domain.exception.InvalidRequestException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.domain.exception.Violation;
 import com.fieldops.shared.presentation.dto.ApiError;
+import com.fieldops.user.domain.model.User;
+import com.fieldops.user.domain.model.UserRole;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -98,9 +100,9 @@ public class InspectionResponseService implements InspectionResponseReader {
     }
 
     @Transactional(readOnly = true)
-    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_RESPONSES_READ)
     public List<InspectionResponseResponse> findAll(UUID inspectionId) {
-        loadInspection(inspectionId);
+        loadForReadableUser(inspectionId);
         return responseRepository.findAllByInspectionIdOrderByAnsweredAtServerAsc(inspectionId).stream()
                 .map(this::toResponse)
                 .toList();
@@ -273,6 +275,19 @@ public class InspectionResponseService implements InspectionResponseReader {
         auditEventService.recordInspectionEvent("RESPONSE_CREATED", RESPONSE_ENTITY, created.getId(),
                 created.getInspectionId(), created.getAnsweredAtDevice(), null, auditValue(created));
         return created;
+    }
+
+    private Inspection loadForReadableUser(UUID inspectionId) {
+        User user = authenticatedUserResolver.requireUser(SecurityContextHolder.getContext().getAuthentication());
+        if (user.getRole() == UserRole.TECHNICIAN) {
+            return inspectionRepository.findWithSnapshotsByIdAndTechnicianId(inspectionId, user.getId())
+                    .orElseThrow(() -> ResourceNotFoundException.of("Inspection", inspectionId));
+        }
+        if (user.getRole() == UserRole.SUPERVISOR) {
+            return inspectionRepository.findByIdAndSupervisorId(inspectionId, user.getId())
+                    .orElseThrow(() -> ResourceNotFoundException.of("Inspection", inspectionId));
+        }
+        throw ResourceNotFoundException.of("Inspection", inspectionId);
     }
 
     private Inspection loadInspection(UUID inspectionId) {

@@ -39,7 +39,7 @@ Foi realizada a auditoria sistemática de segurança sobre todos os endpoints, f
 | `/api/v1/inspections/{id}/history` | GET | `ADMIN`, `SUPERVISOR`, `TECHNICIAN` | Técnico só vê próprias inspeções (404) | Sim |
 | `/api/v1/mobile/inspections`, `/{id}` | GET | `TECHNICIAN` | Somente inspeções atribuídas ao técnico (404) | Sim |
 | `/api/v1/inspections/{id}/start`, `/submit`, `/reopen` | POST | `TECHNICIAN` | Somente técnico atribuído (404) | Sim |
-| `/api/v1/inspections/{id}/responses`, `:batch` | GET/PUT/POST | `TECHNICIAN` | Somente técnico atribuído (404) | Sim |
+| `/api/v1/inspections/{id}/responses`, `:batch` | GET/PUT/POST | `TECHNICIAN` (`SUPERVISOR` leitura) | Técnico atribuído; supervisor só da inspeção que supervisiona (404) | Sim |
 | `/api/v1/inspections/{id}/evidence`, `/evidence/{id}` | GET/POST/DELETE | `TECHNICIAN` (`SUPERVISOR` leitura) | Escopo da inspeção + `no-store` (404) | Sim |
 | `/api/v1/non-conformities`, `/inspections/{id}/non-conformities` | GET/POST/PUT/PATCH | `TECHNICIAN`, `SUPERVISOR` (leitura) / `TECHNICIAN` (escrita) | Escopo da inspeção (404) | Sim |
 | `/api/v1/mobile/sync/pull`, `/push` | GET/POST | `TECHNICIAN` | Somente registros do técnico autenticado | Sim |
