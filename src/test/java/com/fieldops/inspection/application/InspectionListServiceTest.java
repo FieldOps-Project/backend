@@ -10,9 +10,11 @@ import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
 import com.fieldops.inspection.domain.model.Inspection;
 import com.fieldops.inspection.domain.model.InspectionPriority;
 import com.fieldops.inspection.domain.model.InspectionStatus;
+import com.fieldops.inspection.infrastructure.persistence.InspectionAnsweredItemsProjection;
 import com.fieldops.inspection.infrastructure.persistence.InspectionItemSnapshotRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionProgressProjection;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
+import com.fieldops.inspection.infrastructure.persistence.InspectionResponseRepository;
 import com.fieldops.user.domain.model.User;
 import com.fieldops.user.domain.model.UserRole;
 import com.fieldops.user.infrastructure.persistence.UserRepository;
@@ -43,6 +45,7 @@ class InspectionListServiceTest {
 
     private final InspectionRepository inspectionRepository = mock(InspectionRepository.class);
     private final InspectionItemSnapshotRepository snapshotRepository = mock(InspectionItemSnapshotRepository.class);
+    private final InspectionResponseRepository responseRepository = mock(InspectionResponseRepository.class);
     private final ClientRepository clientRepository = mock(ClientRepository.class);
     private final InspectionSiteRepository siteRepository = mock(InspectionSiteRepository.class);
     private final EquipmentRepository equipmentRepository = mock(EquipmentRepository.class);
@@ -51,6 +54,7 @@ class InspectionListServiceTest {
     private final InspectionListService service = new InspectionListService(
             inspectionRepository,
             snapshotRepository,
+            responseRepository,
             clientRepository,
             siteRepository,
             equipmentRepository,
@@ -93,6 +97,11 @@ class InspectionListServiceTest {
         when(progress.getInspectionId()).thenReturn(inspectionId);
         when(progress.getApplicableItems()).thenReturn(5L);
         when(snapshotRepository.countApplicableItems(any())).thenReturn(List.of(progress));
+
+        InspectionAnsweredItemsProjection answered = mock(InspectionAnsweredItemsProjection.class);
+        when(answered.getInspectionId()).thenReturn(inspectionId);
+        when(answered.getAnsweredItems()).thenReturn(3L);
+        when(responseRepository.countAnsweredItems(any())).thenReturn(List.of(answered));
 
         Client client = mock(Client.class);
         when(client.getId()).thenReturn(clientId);
@@ -145,15 +154,31 @@ class InspectionListServiceTest {
             assertThat(item.equipmentName()).isEqualTo("Extintor 01");
             assertThat(item.technicianName()).isEqualTo("Maria Silva");
             assertThat(item.applicableItems()).isEqualTo(5);
-            assertThat(item.answeredItems()).isZero();
+            assertThat(item.answeredItems()).isEqualTo(3);
             assertThat(item.overdue()).isTrue();
         });
 
         var pageableCaptor = forClass(Pageable.class);
         verify(inspectionRepository).findAll(any(Specification.class), pageableCaptor.capture());
         verify(snapshotRepository).countApplicableItems(any());
+        verify(responseRepository).countAnsweredItems(any());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("scheduledFor").isAscending()).isTrue();
+    }
+
+    @Test
+    void reportsZeroAnsweredItemsForAnInspectionWithoutResponses() {
+        when(responseRepository.countAnsweredItems(any())).thenReturn(List.of());
+
+        Page<InspectionListItem> result = service.findAll(new InspectionListQuery(
+                null, null, null, null, null, null, null, null,
+                null, null, false, 0, 20, null
+        ));
+
+        assertThat(result.getContent()).singleElement().satisfies(item -> {
+            assertThat(item.answeredItems()).isZero();
+            assertThat(item.applicableItems()).isEqualTo(5);
+        });
     }
 
     @Test
