@@ -146,7 +146,7 @@ class SyncConflictIntegrationTest {
 
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(
-                        technician.getId().toString(),
+                        technician,
                         null,
                         List.of(new SimpleGrantedAuthority("ROLE_TECHNICIAN"))
                 )

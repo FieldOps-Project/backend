@@ -105,7 +105,7 @@ public class NonConformityService implements InspectionNonConformityReader {
      * Applies a non-conformity creation or upsert from offline synchronization, enforcing
      * {@code baseVersion} when the record already exists on the server.
      */
-    @Transactional
+    @Transactional(noRollbackFor = ConflictException.class)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public NonConformity createFromSynchronization(
             UUID inspectionId,
@@ -151,7 +151,7 @@ public class NonConformityService implements InspectionNonConformityReader {
      * Applies a non-conformity update from offline synchronization while checking optimistic
      * {@code baseVersion} against the current server record.
      */
-    @Transactional
+    @Transactional(noRollbackFor = ConflictException.class)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public NonConformity updateFromSynchronization(UUID id, UpdateNonConformityRequest request, int baseVersion) {
         return updateWithVersionCheck(id, request, baseVersion);
