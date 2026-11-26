@@ -123,7 +123,7 @@ public class InspectionResponseService implements InspectionResponseReader {
      * same snapshot, ownership, editability and optimistic-version rules used
      * by the online endpoint.
      */
-    @Transactional(noRollbackFor = ConflictException.class)
+    @Transactional(noRollbackFor = RuntimeException.class)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public InspectionResponse applyFromSynchronization(
             UUID inspectionId,

@@ -16,6 +16,7 @@ import com.fieldops.inspection.domain.model.InspectionTemplateVersion;
 import com.fieldops.inspection.domain.model.ResponseType;
 import com.fieldops.inspection.domain.model.TemplateItem;
 import com.fieldops.inspection.domain.model.TemplateSection;
+import com.fieldops.inspection.domain.model.TemplateStatus;
 import com.fieldops.inspection.infrastructure.persistence.InspectionRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateRepository;
 import com.fieldops.inspection.infrastructure.persistence.InspectionTemplateVersionRepository;
@@ -657,9 +658,18 @@ class CriticalFlowsIntegrationTest {
                         .header("Authorization", "Bearer " + techAToken))
                 .andExpect(status().isForbidden());
 
-        // SUPERVISOR cannot manage users (ADMIN only)
-        mockMvc.perform(get("/api/v1/users")
-                        .header("Authorization", "Bearer " + supervisorToken))
+        // SUPERVISOR cannot manage users (ADMIN only), while read access is allowed
+        mockMvc.perform(post("/api/v1/users")
+                        .header("Authorization", "Bearer " + supervisorToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Blocked User",
+                                  "email": "blocked-%s@fieldops.local",
+                                  "password": "FieldOps@2026!",
+                                  "role": "TECHNICIAN"
+                                }
+                                """.formatted(UUID.randomUUID())))
                 .andExpect(status().isForbidden());
 
         // ADMIN cannot execute mobile technician routes
@@ -714,7 +724,7 @@ class CriticalFlowsIntegrationTest {
                 InspectionSite.create(client, prefix + " Site " + uid, null, "Rua A, 10", "SP", "SP", null, null, null, null, null, InspectionSiteStatus.ACTIVE)
         );
         Equipment equipment = equipmentRepository.saveAndFlush(
-                Equipment.create(site.getId(), prefix + " Equip " + uid, null, null, null, null, null, "QR-" + prefix + "-" + uid, null, EquipmentStatus.ACTIVE)
+                Equipment.create(site.getId(), prefix + " Equip " + uid, null, null, null, null, null, "QR-" + prefix + "-" + uid, EquipmentStatus.ACTIVE, null)
         );
         InspectionTemplate template = templateRepository.saveAndFlush(
                 InspectionTemplate.create(prefix + " Template " + uid, null, "Geral", supervisor.getId())
@@ -727,6 +737,8 @@ class CriticalFlowsIntegrationTest {
         section.addItem(TemplateItem.create(section, "IT-02", "Item 2", null, ResponseType.BOOLEAN, true, false, false, null, 2));
         version.addSection(section);
         version = versionRepository.saveAndFlush(version);
+        template.updateStatus(TemplateStatus.ACTIVE);
+        templateRepository.saveAndFlush(template);
         return new FixtureData(client, site, equipment, version);
     }
 

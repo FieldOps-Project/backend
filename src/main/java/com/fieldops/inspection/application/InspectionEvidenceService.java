@@ -109,7 +109,7 @@ public class InspectionEvidenceService {
         return saved;
     }
 
-    @Transactional(noRollbackFor = ConflictException.class)
+    @Transactional(noRollbackFor = RuntimeException.class)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public InspectionEvidence uploadFromSynchronization(
             UUID inspectionId,
@@ -158,7 +158,7 @@ public class InspectionEvidenceService {
      * Applies the metadata of an evidence whose binary is synchronized by a later UPLOAD
      * operation (RN-078): the evidence stays with {@code uploaded_at} null until then.
      */
-    @Transactional(noRollbackFor = ConflictException.class)
+    @Transactional(noRollbackFor = RuntimeException.class)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public InspectionEvidence registerFromSynchronization(
             UUID inspectionId,
@@ -174,7 +174,7 @@ public class InspectionEvidenceService {
      * Applies evidence metadata from synchronization, checking {@code baseVersion} and deletion
      * state if the evidence already exists on the server.
      */
-    @Transactional(noRollbackFor = ConflictException.class)
+    @Transactional(noRollbackFor = RuntimeException.class)
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public InspectionEvidence registerFromSynchronization(
             UUID inspectionId,
