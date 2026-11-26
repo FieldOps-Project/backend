@@ -5,17 +5,21 @@ import com.fieldops.shared.domain.exception.ConflictException;
 import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.domain.exception.Violation;
 import com.fieldops.shared.infrastructure.filter.RequestIdFilter;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 
@@ -57,6 +61,26 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/not-found")
         void notFound() {
             throw ResourceNotFoundException.of("Equipment", "abc-123");
+        }
+
+        @GetMapping("/not-found-spaced")
+        void notFoundSpaced() {
+            throw ResourceNotFoundException.of("Inspection site", "abc-123");
+        }
+
+        @GetMapping("/no-resource")
+        void noResource() throws NoResourceFoundException {
+            throw new NoResourceFoundException(HttpMethod.GET, "/test/no-resource", "No static resource test/no-resource.");
+        }
+
+        @PutMapping("/stale-entity")
+        void staleEntity() {
+            throw new ObjectOptimisticLockingFailureException("com.fieldops.client.domain.model.Client", "abc-123");
+        }
+
+        @PutMapping("/stale-jpa")
+        void staleJpa() {
+            throw new OptimisticLockException("Row was updated or deleted by another transaction");
         }
 
         @PutMapping("/conflict")
@@ -127,6 +151,56 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value(containsString("abc-123")))
                 .andExpect(jsonPath("$.requestId").isNotEmpty())
                 .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    @DisplayName("Route without handler → 404 ROUTE_NOT_FOUND instead of 500")
+    void unmappedRoute_returns404() throws Exception {
+        mockMvc.perform(get("/test/no-resource"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.code").value("ROUTE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message", not(containsString("static resource"))))
+                .andExpect(jsonPath("$.requestId").isNotEmpty())
+                .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    @DisplayName("Path that no controller maps → 404 ROUTE_NOT_FOUND")
+    void pathWithoutAnyController_returns404() throws Exception {
+        mockMvc.perform(get("/test/nothing-maps-here"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ROUTE_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("Entity named with a space → code without the space")
+    void entityNameWithSpace_producesAWellFormedCode() throws Exception {
+        mockMvc.perform(get("/test/not-found-spaced"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("INSPECTION_SITE_NOT_FOUND"));
+    }
+
+    // ── 503 Concurrent modification ─────────────────────────────────────
+
+    @Test
+    @DisplayName("Lost optimistic-lock race → retryable 503 CONCURRENT_MODIFICATION, not 500")
+    void optimisticLockFailure_isReportedAsARetryableConcurrentModification() throws Exception {
+        mockMvc.perform(put("/test/stale-entity"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.code").value("CONCURRENT_MODIFICATION"))
+                .andExpect(jsonPath("$.message", not(containsString("Client"))))
+                .andExpect(jsonPath("$.requestId").isNotEmpty())
+                .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    @DisplayName("Untranslated JPA OptimisticLockException gets the same answer")
+    void jpaOptimisticLockException_isReportedTheSameWay() throws Exception {
+        mockMvc.perform(put("/test/stale-jpa"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("CONCURRENT_MODIFICATION"));
     }
 
     // ── 409 Conflict ────────────────────────────────────────────────────

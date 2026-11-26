@@ -9,11 +9,13 @@ import com.fieldops.shared.domain.exception.ResourceNotFoundException;
 import com.fieldops.shared.domain.exception.UnsupportedFileTypeException;
 import com.fieldops.shared.infrastructure.filter.RequestIdFilter;
 import com.fieldops.shared.presentation.dto.ApiError;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -24,6 +26,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.List;
@@ -129,6 +133,34 @@ public class GlobalExceptionHandler {
         ApiError body = buildError(HttpStatus.NOT_FOUND, ex.getCode(), ex.getMessage(), request);
         log.warn("Resource not found: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ApiError> handleRouteNotFound(Exception ex,
+                                                        HttpServletRequest request) {
+        ApiError body = buildError(
+                HttpStatus.NOT_FOUND,
+                "ROUTE_NOT_FOUND",
+                "No resource exists at the requested path",
+                request
+        );
+        log.warn("No route for {} {}", request.getMethod(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    // ── 503 Concurrent modification ─────────────────────────────────────
+
+    @ExceptionHandler({OptimisticLockingFailureException.class, OptimisticLockException.class})
+    public ResponseEntity<ApiError> handleConcurrentModification(Exception ex,
+                                                                 HttpServletRequest request) {
+        ApiError body = buildError(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "CONCURRENT_MODIFICATION",
+                "The record was changed by another request while this one was being processed. Reload and try again.",
+                request
+        );
+        log.warn("Concurrent modification on {} {}", request.getMethod(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
     }
 
     // ── 409 Conflict ────────────────────────────────────────────────────

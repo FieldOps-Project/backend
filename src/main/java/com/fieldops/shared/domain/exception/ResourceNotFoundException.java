@@ -16,7 +16,7 @@ public class ResourceNotFoundException extends BusinessException {
      * {@code "Entity with id X not found"}.
      */
     public static ResourceNotFoundException of(String entity, Object id) {
-        String code = entity.toUpperCase() + "_NOT_FOUND";
+        String code = entity.toUpperCase().replaceAll("[^A-Z0-9]+", "_") + "_NOT_FOUND";
         String message = entity + " with id " + id + " not found";
         return new ResourceNotFoundException(code, message);
     }
