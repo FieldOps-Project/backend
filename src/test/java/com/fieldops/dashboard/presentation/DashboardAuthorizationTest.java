@@ -7,6 +7,7 @@ import com.fieldops.dashboard.application.DashboardSummary;
 import com.fieldops.dashboard.application.DashboardInspectionStatusCount;
 import com.fieldops.dashboard.application.DashboardNonConformitySeverityCount;
 import com.fieldops.inspection.application.InspectionReportService;
+import com.fieldops.inspection.application.InspectionCsvExportService;
 import com.fieldops.client.infrastructure.persistence.ClientRepository;
 import com.fieldops.client.infrastructure.persistence.InspectionSiteRepository;
 import com.fieldops.equipment.infrastructure.persistence.EquipmentRepository;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.nio.charset.StandardCharsets;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -64,6 +66,9 @@ class DashboardAuthorizationTest {
 
     @MockitoBean
     private InspectionReportService inspectionReportService;
+
+    @MockitoBean
+    private InspectionCsvExportService inspectionCsvExportService;
 
     @MockitoBean private UserRepository userRepository;
     @MockitoBean private RefreshTokenRepository refreshTokenRepository;
@@ -129,5 +134,24 @@ class DashboardAuthorizationTest {
         mockMvc.perform(get("/api/v1/inspections/{id}/report.pdf", java.util.UUID.randomUUID())
                         .with(user("technician").roles("TECHNICIAN")))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void csvExportFollowsListAuthorization() throws Exception {
+        doNothing().when(inspectionCsvExportService).writeInspections(any(), any());
+        doNothing().when(inspectionCsvExportService).writeNonConformities(any(), any(), any(), any(), any());
+
+        mockMvc.perform(get("/api/v1/inspections/export.csv")
+                        .with(user("supervisor").roles("SUPERVISOR")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"));
+
+        mockMvc.perform(get("/api/v1/inspections/export.csv")
+                        .with(user("technician").roles("TECHNICIAN")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/non-conformities/export.csv")
+                        .with(user("technician").roles("TECHNICIAN")))
+                .andExpect(status().isOk());
     }
 }

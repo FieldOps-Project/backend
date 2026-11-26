@@ -11,6 +11,8 @@ public interface InspectionResponseRepository extends JpaRepository<InspectionRe
 
     List<InspectionResponse> findAllByInspectionIdOrderByAnsweredAtServerAsc(UUID inspectionId);
 
+    long countByInspectionId(UUID inspectionId);
+
     Optional<InspectionResponse> findByIdAndInspectionId(UUID id, UUID inspectionId);
 
     Optional<InspectionResponse> findByInspectionIdAndInspectionItemId(UUID inspectionId, UUID inspectionItemId);

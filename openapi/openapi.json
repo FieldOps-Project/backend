@@ -66,6 +66,9 @@
   }, {
     "name" : "Inspection reviews",
     "description" : "Supervisor review cycles: begin, approve and reject."
+  }, {
+    "name" : "CSV exports",
+    "description" : "Streaming CSV exports for list views."
   } ],
   "paths" : {
     "/api/v1/auth/login" : {
@@ -4391,6 +4394,78 @@
         } ]
       }
     },
+    "/api/v1/non-conformities/export.csv" : {
+      "get" : {
+        "tags" : [ "CSV exports" ],
+        "summary" : "Export filtered non-conformities as CSV",
+        "description" : "Streams the same filters as the non-conformity list. The file uses UTF-8 with BOM and semicolon separator.",
+        "operationId" : "exportNonConformities",
+        "parameters" : [ {
+          "name" : "inspectionId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "severity",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "LOW", "MEDIUM", "HIGH", "CRITICAL" ]
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "OPEN" ]
+          }
+        }, {
+          "name" : "clientId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Non-conformity CSV streamed",
+            "content" : {
+              "text/csv;charset=UTF-8" : { }
+            }
+          },
+          "401" : {
+            "description" : "Missing or invalid token",
+            "content" : {
+              "text/csv" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "text/csv" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
     "/api/v1/mobile/sync/pull" : {
       "get" : {
         "tags" : [ "Mobile synchronization" ],
@@ -4770,6 +4845,141 @@
             "description" : "Inspection not found or outside the user scope",
             "content" : {
               "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/inspections/export.csv" : {
+      "get" : {
+        "tags" : [ "CSV exports" ],
+        "summary" : "Export filtered inspections as CSV",
+        "description" : "Streams the same inspection filters as the administrative list. The file uses UTF-8 with BOM and semicolon separator.",
+        "operationId" : "exportInspections",
+        "parameters" : [ {
+          "name" : "search",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "ASSIGNED", "IN_PROGRESS", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "CANCELED" ]
+          }
+        }, {
+          "name" : "technicianId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "supervisorId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "clientId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "siteId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "equipmentId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "priority",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "LOW", "MEDIUM", "HIGH", "CRITICAL" ]
+          }
+        }, {
+          "name" : "scheduledFrom",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "scheduledTo",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "overdue",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "scheduledFor,asc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Inspection CSV streamed",
+            "content" : {
+              "text/csv;charset=UTF-8" : { }
+            }
+          },
+          "401" : {
+            "description" : "Missing or invalid token",
+            "content" : {
+              "text/csv" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Access denied",
+            "content" : {
+              "text/csv" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiError"
                 }

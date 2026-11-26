@@ -20,4 +20,7 @@ public interface InspectionItemSnapshotRepository extends JpaRepository<Inspecti
             GROUP BY inspection_id
             """, nativeQuery = true)
     List<InspectionProgressProjection> countApplicableItems(@Param("inspectionIds") Collection<UUID> inspectionIds);
+
+    @Query("select count(snapshot.id) from InspectionItemSnapshot snapshot where snapshot.inspection.id = :inspectionId")
+    long countApplicableItemsByInspectionId(@Param("inspectionId") UUID inspectionId);
 }
