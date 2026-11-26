@@ -1,5 +1,6 @@
 package com.fieldops.inspection.infrastructure.persistence;
 
+import com.fieldops.dashboard.infrastructure.persistence.NonConformitySeverityCountProjection;
 import com.fieldops.inspection.domain.model.NonConformity;
 import com.fieldops.inspection.domain.model.NonConformitySeverity;
 import com.fieldops.inspection.domain.model.NonConformityStatus;
@@ -36,5 +37,21 @@ public interface NonConformityRepository extends JpaRepository<NonConformity, UU
             @Param("status") NonConformityStatus status,
             @Param("clientId") UUID clientId,
             Pageable pageable
+    );
+
+    @Query("""
+            select n.severity as severity, count(n.id) as count
+            from NonConformity n, Inspection i
+            where n.inspectionId = i.id
+              and (:periodStart is null or i.scheduledFor >= :periodStart)
+              and (:periodEnd is null or i.scheduledFor <= :periodEnd)
+              and (:supervisorId is null or i.supervisorId = :supervisorId)
+            group by n.severity
+            order by n.severity
+            """)
+    List<NonConformitySeverityCountProjection> countBySeverityForDashboard(
+            @Param("periodStart") java.time.Instant periodStart,
+            @Param("periodEnd") java.time.Instant periodEnd,
+            @Param("supervisorId") UUID supervisorId
     );
 }

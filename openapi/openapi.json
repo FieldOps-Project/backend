@@ -43,6 +43,9 @@
     "name" : "Authentication",
     "description" : "Authentication and session contract."
   }, {
+    "name" : "Dashboard",
+    "description" : "Administrative inspection indicators."
+  }, {
     "name" : "Inspection Templates",
     "description" : "Template builder: draft editing of sections and items."
   }, {
@@ -4883,6 +4886,192 @@
         }
       }
     },
+    "/api/v1/dashboard/summary" : {
+      "get" : {
+        "tags" : [ "Dashboard" ],
+        "summary" : "Get dashboard indicators",
+        "description" : "Returns status totals, overdue inspections, inspections awaiting review and non-conformities by severity. The period filters scheduled inspections; supervisors see only their own scope.",
+        "operationId" : "summary",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Dashboard indicators returned",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardSummaryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid period",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Insufficient permissions",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/dashboard/non-conformities-by-severity" : {
+      "get" : {
+        "tags" : [ "Dashboard" ],
+        "summary" : "Count non-conformities by severity",
+        "description" : "Returns database-aggregated non-conformity counts by severity for the selected scheduled period.",
+        "operationId" : "nonConformitiesBySeverity",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Severity counts returned",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/NonConformitySeverityCountResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid period",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Insufficient permissions",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
+    "/api/v1/dashboard/inspections-by-status" : {
+      "get" : {
+        "tags" : [ "Dashboard" ],
+        "summary" : "Count inspections by status",
+        "description" : "Returns database-aggregated inspection counts by status for the selected scheduled period.",
+        "operationId" : "inspectionsByStatus",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Status counts returned",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/InspectionStatusCountResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid period",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "Insufficient permissions",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ]
+      }
+    },
     "/api/v1/clients/{clientId}/sites" : {
       "get" : {
         "tags" : [ "Inspection sites" ],
@@ -5494,75 +5683,75 @@
       "JsonNode" : {
         "type" : "object",
         "properties" : {
-          "array" : {
+          "empty" : {
             "type" : "boolean"
           },
-          "empty" : {
+          "array" : {
             "type" : "boolean"
           },
           "null" : {
             "type" : "boolean"
           },
-          "float" : {
-            "type" : "boolean"
-          },
-          "container" : {
-            "type" : "boolean"
-          },
-          "binary" : {
-            "type" : "boolean"
-          },
-          "int" : {
-            "type" : "boolean"
-          },
-          "string" : {
-            "type" : "boolean"
-          },
-          "textual" : {
-            "type" : "boolean",
-            "deprecated" : true
-          },
           "object" : {
             "type" : "boolean"
           },
-          "short" : {
-            "type" : "boolean"
-          },
-          "double" : {
-            "type" : "boolean"
-          },
-          "pojo" : {
-            "type" : "boolean"
-          },
-          "long" : {
-            "type" : "boolean"
-          },
-          "boolean" : {
-            "type" : "boolean"
-          },
-          "floatingPointNumber" : {
-            "type" : "boolean"
-          },
-          "number" : {
-            "type" : "boolean"
-          },
-          "bigInteger" : {
-            "type" : "boolean"
-          },
-          "valueNode" : {
-            "type" : "boolean"
-          },
-          "integralNumber" : {
+          "float" : {
             "type" : "boolean"
           },
           "nodeType" : {
             "type" : "string",
             "enum" : [ "ARRAY", "BINARY", "BOOLEAN", "MISSING", "NULL", "NUMBER", "OBJECT", "POJO", "STRING" ]
           },
-          "bigDecimal" : {
+          "string" : {
+            "type" : "boolean"
+          },
+          "integralNumber" : {
             "type" : "boolean"
           },
           "missingNode" : {
+            "type" : "boolean"
+          },
+          "valueNode" : {
+            "type" : "boolean"
+          },
+          "pojo" : {
+            "type" : "boolean"
+          },
+          "floatingPointNumber" : {
+            "type" : "boolean"
+          },
+          "short" : {
+            "type" : "boolean"
+          },
+          "int" : {
+            "type" : "boolean"
+          },
+          "long" : {
+            "type" : "boolean"
+          },
+          "double" : {
+            "type" : "boolean"
+          },
+          "bigDecimal" : {
+            "type" : "boolean"
+          },
+          "bigInteger" : {
+            "type" : "boolean"
+          },
+          "textual" : {
+            "type" : "boolean",
+            "deprecated" : true
+          },
+          "boolean" : {
+            "type" : "boolean"
+          },
+          "binary" : {
+            "type" : "boolean"
+          },
+          "container" : {
+            "type" : "boolean"
+          },
+          "number" : {
             "type" : "boolean"
           },
           "embeddedValue" : {
@@ -8014,6 +8203,64 @@
             "items" : {
               "$ref" : "#/components/schemas/TemplateSectionResponse"
             }
+          }
+        }
+      },
+      "DashboardSummaryResponse" : {
+        "type" : "object",
+        "description" : "Administrative inspection indicators for the selected period.",
+        "properties" : {
+          "totalInspections" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "overdueInspections" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inspectionsAwaitingReview" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inspectionsByStatus" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InspectionStatusCountResponse"
+            }
+          },
+          "nonConformitiesBySeverity" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NonConformitySeverityCountResponse"
+            }
+          }
+        }
+      },
+      "InspectionStatusCountResponse" : {
+        "type" : "object",
+        "description" : "Inspection count grouped by status.",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "ASSIGNED", "IN_PROGRESS", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "CANCELED" ]
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "NonConformitySeverityCountResponse" : {
+        "type" : "object",
+        "description" : "Non-conformity count grouped by severity.",
+        "properties" : {
+          "severity" : {
+            "type" : "string",
+            "enum" : [ "LOW", "MEDIUM", "HIGH", "CRITICAL" ]
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
