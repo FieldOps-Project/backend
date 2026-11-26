@@ -6,6 +6,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -43,6 +45,10 @@ public class SyncProcessedOperation {
     @Column(name = "result_message", length = 500)
     private String resultMessage;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "server_state")
+    private String serverState;
+
     @Column(name = "processed_at", nullable = false, updatable = false)
     private Instant processedAt;
 
@@ -59,6 +65,7 @@ public class SyncProcessedOperation {
             Integer entityVersion,
             String resultCode,
             String resultMessage,
+            String serverState,
             Instant processedAt
     ) {
         this.operationId = operationId;
@@ -70,6 +77,7 @@ public class SyncProcessedOperation {
         this.entityVersion = entityVersion;
         this.resultCode = resultCode;
         this.resultMessage = resultMessage;
+        this.serverState = serverState;
         this.processedAt = processedAt;
     }
 
@@ -85,9 +93,28 @@ public class SyncProcessedOperation {
             String resultMessage,
             Instant processedAt
     ) {
+        return record(
+                operationId, deviceId, userId, entityType, entityId, resultStatus,
+                entityVersion, resultCode, resultMessage, null, processedAt
+        );
+    }
+
+    public static SyncProcessedOperation record(
+            UUID operationId,
+            UUID deviceId,
+            UUID userId,
+            String entityType,
+            UUID entityId,
+            SyncOperationResultStatus resultStatus,
+            Integer entityVersion,
+            String resultCode,
+            String resultMessage,
+            String serverState,
+            Instant processedAt
+    ) {
         return new SyncProcessedOperation(
                 operationId, deviceId, userId, entityType, entityId, resultStatus,
-                entityVersion, resultCode, resultMessage, processedAt
+                entityVersion, resultCode, resultMessage, serverState, processedAt
         );
     }
 
@@ -125,6 +152,10 @@ public class SyncProcessedOperation {
 
     public String getResultMessage() {
         return resultMessage;
+    }
+
+    public String getServerState() {
+        return serverState;
     }
 
     public Instant getProcessedAt() {

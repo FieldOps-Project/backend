@@ -77,7 +77,8 @@ public class SyncController {
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     @Operation(
             summary = "Push offline operations",
-            description = "Processes mobile operations in dependency order. Each operation is isolated and identified persistently for safe retries.",
+            description = "Processes mobile operations in dependency order. Each operation is isolated and identified persistently for safe retries. "
+                    + "Version mismatches or terminal server states (APPROVED/CANCELED) return CONFLICT with current serverVersion and serverState without discarding local device data.",
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     content = @io.swagger.v3.oas.annotations.media.Content(

@@ -98,6 +98,20 @@ public class NonConformityService implements InspectionNonConformityReader {
     @Transactional
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public NonConformity create(UUID inspectionId, CreateNonConformityRequest request) {
+        return createFromSynchronization(inspectionId, request, null);
+    }
+
+    /**
+     * Applies a non-conformity creation or upsert from offline synchronization, enforcing
+     * {@code baseVersion} when the record already exists on the server.
+     */
+    @Transactional(noRollbackFor = ConflictException.class)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public NonConformity createFromSynchronization(
+            UUID inspectionId,
+            CreateNonConformityRequest request,
+            Integer baseVersion
+    ) {
         Inspection inspection = loadForTechnician(inspectionId);
         assertEditable(inspection);
         NonConformity existing = repository.findById(request.id()).orElse(null);
@@ -105,6 +119,12 @@ public class NonConformityService implements InspectionNonConformityReader {
             if (!existing.getInspectionId().equals(inspectionId)) {
                 throw new ConflictException("NON_CONFORMITY_ID_REUSED",
                         "The non-conformity id is already linked to another inspection");
+            }
+            if (baseVersion != null && baseVersion != existing.getVersion()) {
+                throw new ConflictException(
+                        "NON_CONFORMITY_VERSION_CONFLICT",
+                        "The non-conformity version is stale; reload the inspection before retrying"
+                );
             }
             return existing;
         }
@@ -124,7 +144,27 @@ public class NonConformityService implements InspectionNonConformityReader {
     @Transactional
     @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
     public NonConformity update(UUID id, UpdateNonConformityRequest request) {
+        return updateWithVersionCheck(id, request, null);
+    }
+
+    /**
+     * Applies a non-conformity update from offline synchronization while checking optimistic
+     * {@code baseVersion} against the current server record.
+     */
+    @Transactional(noRollbackFor = ConflictException.class)
+    @PreAuthorize(AuthorizationPolicies.INSPECTIONS_EXECUTE)
+    public NonConformity updateFromSynchronization(UUID id, UpdateNonConformityRequest request, int baseVersion) {
+        return updateWithVersionCheck(id, request, baseVersion);
+    }
+
+    private NonConformity updateWithVersionCheck(UUID id, UpdateNonConformityRequest request, Integer baseVersion) {
         NonConformity nonConformity = loadForUpdate(id);
+        if (baseVersion != null && baseVersion != nonConformity.getVersion()) {
+            throw new ConflictException(
+                    "NON_CONFORMITY_VERSION_CONFLICT",
+                    "The non-conformity version is stale; reload the inspection before retrying"
+            );
+        }
         String before = auditState(nonConformity);
         nonConformity.updateDetails(request.title(), request.description(), request.severity());
         NonConformity saved = repository.saveAndFlush(nonConformity);

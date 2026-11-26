@@ -1,6 +1,7 @@
 package com.fieldops.sync.application;
 
 import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.fieldops.audit.application.AuditEventService;
 import com.fieldops.inspection.application.InspectionEvidenceService;
@@ -13,35 +14,61 @@ import com.fieldops.inspection.presentation.dto.UpdateNonConformityRequest;
 import com.fieldops.shared.domain.exception.BusinessException;
 import com.fieldops.shared.domain.exception.ConflictException;
 import com.fieldops.shared.domain.exception.InvalidRequestException;
+import com.fieldops.shared.infrastructure.filter.RequestIdFilter;
 import com.fieldops.sync.domain.model.SyncOperationResultStatus;
 import com.fieldops.sync.domain.model.SyncProcessedOperation;
 import com.fieldops.sync.infrastructure.persistence.SyncProcessedOperationRepository;
 import com.fieldops.sync.presentation.dto.SyncOperationRequest;
 import com.fieldops.sync.presentation.dto.SyncOperationResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
 public class SyncOperationProcessor {
 
+    private static final Logger log = LoggerFactory.getLogger(SyncOperationProcessor.class);
     private static final Pattern SHA_256_HEX = Pattern.compile("[0-9a-f]{64}");
 
     private final SyncProcessedOperationRepository processedOperationRepository;
     private final InspectionResponseService responseService;
     private final InspectionEvidenceService evidenceService;
     private final NonConformityService nonConformityService;
+    private final SyncConflictResolver conflictResolver;
     private final ObjectMapper objectMapper;
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
+
+    @Autowired
+    public SyncOperationProcessor(
+            SyncProcessedOperationRepository processedOperationRepository,
+            InspectionResponseService responseService,
+            InspectionEvidenceService evidenceService,
+            NonConformityService nonConformityService,
+            SyncConflictResolver conflictResolver,
+            ObjectMapper objectMapper,
+            JdbcTemplate jdbcTemplate
+    ) {
+        this.processedOperationRepository = processedOperationRepository;
+        this.responseService = responseService;
+        this.evidenceService = evidenceService;
+        this.nonConformityService = nonConformityService;
+        this.conflictResolver = conflictResolver;
+        this.objectMapper = objectMapper;
+        this.jdbcTemplate = jdbcTemplate;
+        this.clock = Clock.systemUTC();
+    }
 
     public SyncOperationProcessor(
             SyncProcessedOperationRepository processedOperationRepository,
@@ -51,13 +78,8 @@ public class SyncOperationProcessor {
             ObjectMapper objectMapper,
             JdbcTemplate jdbcTemplate
     ) {
-        this.processedOperationRepository = processedOperationRepository;
-        this.responseService = responseService;
-        this.evidenceService = evidenceService;
-        this.nonConformityService = nonConformityService;
-        this.objectMapper = objectMapper;
-        this.jdbcTemplate = jdbcTemplate;
-        this.clock = Clock.systemUTC();
+        this(processedOperationRepository, responseService, evidenceService, nonConformityService,
+                null, objectMapper, jdbcTemplate);
     }
 
     /**
@@ -72,27 +94,38 @@ public class SyncOperationProcessor {
             return alreadyApplied(existing);
         }
 
+        UUID inspectionId = extractUuidField(operation.payload(), "inspectionId");
+        UUID itemId = extractUuidField(operation.payload(), "inspectionItemId");
+
         MDC.put(AuditEventService.DEVICE_ID_MDC_KEY, deviceId.toString());
         try {
+            if (conflictResolver != null) {
+                Optional<SyncConflictResolver.ConflictDetails> precedenceConflict =
+                        conflictResolver.checkInspectionPrecedence(inspectionId, userId);
+                if (precedenceConflict.isPresent()) {
+                    return recordConflict(deviceId, userId, operation, precedenceConflict.get());
+                }
+            }
+
             AppliedEntity applied = apply(operation);
             return persist(
                     deviceId, userId, operation, SyncOperationResultStatus.APPLIED,
-                    applied.version(), null, null
+                    applied.version(), null, null, null
             );
         } catch (ConflictException exception) {
-            return persist(
-                    deviceId, userId, operation, SyncOperationResultStatus.CONFLICT,
-                    null, exception.getCode(), exception.getMessage()
-            );
+            SyncConflictResolver.ConflictDetails details = conflictResolver != null
+                    ? conflictResolver.resolveConflict(operation, inspectionId, itemId, exception)
+                    : new SyncConflictResolver.ConflictDetails(null, exception.getCode(), exception.getMessage(), null);
+            return recordConflict(deviceId, userId, operation, details);
         } catch (BusinessException | InvalidRequestException | IllegalArgumentException exception) {
             return persist(
                     deviceId, userId, operation, SyncOperationResultStatus.REJECTED,
-                    null, errorCode(exception), exception.getMessage()
+                    null, errorCode(exception), exception.getMessage(), null
             );
         } catch (RuntimeException exception) {
             return persist(
                     deviceId, userId, operation, SyncOperationResultStatus.REJECTED,
-                    null, "SYNC_OPERATION_FAILED", "The synchronization operation could not be applied"
+                    null, "SYNC_OPERATION_FAILED", "The synchronization operation could not be applied", null
             );
         } finally {
             MDC.remove(AuditEventService.DEVICE_ID_MDC_KEY);
@@ -113,7 +146,7 @@ public class SyncOperationProcessor {
         if (existing != null) {
             return alreadyApplied(existing);
         }
-        return persist(deviceId, userId, operation, status, null, code, message);
+        return persist(deviceId, userId, operation, status, null, code, message, null);
     }
 
     private AppliedEntity apply(SyncOperationRequest operation) {
@@ -169,7 +202,7 @@ public class SyncOperationProcessor {
             return new AppliedEntity(
                     evidenceService.registerFromSynchronization(
                             inspectionId, evidenceMetadata(operation, payload), payload.mimeType(),
-                            payload.sizeBytes(), payload.checksum()
+                            payload.sizeBytes(), payload.checksum(), operation.baseVersion()
                     ).getVersion()
             );
         }
@@ -208,14 +241,20 @@ public class SyncOperationProcessor {
                     payload.createdAtDevice() == null ? clock.instant() : payload.createdAtDevice()
             );
             return new AppliedEntity(
-                    nonConformityService.create(inspectionId, request).getVersion()
+                    nonConformityService.createFromSynchronization(
+                            inspectionId, request, operation.baseVersion()
+                    ).getVersion()
             );
         }
         if ("UPDATE".equals(operation.operationType())) {
             UpdateNonConformityRequest request = new UpdateNonConformityRequest(
                     payload.title(), payload.description(), payload.severity()
             );
-            return new AppliedEntity(nonConformityService.update(operation.entityId(), request).getVersion());
+            return new AppliedEntity(
+                    nonConformityService.updateFromSynchronization(
+                            operation.entityId(), request, operation.baseVersion()
+                    ).getVersion()
+            );
         }
         throw new InvalidRequestException("SYNC_OPERATION_TYPE_UNSUPPORTED", "The non-conformity operation type is not supported");
     }
@@ -250,6 +289,29 @@ public class SyncOperationProcessor {
         return inspectionId;
     }
 
+    private SyncOperationResult recordConflict(
+            UUID deviceId,
+            UUID userId,
+            SyncOperationRequest operation,
+            SyncConflictResolver.ConflictDetails details
+    ) {
+        log.warn(
+                "Sync conflict detected: requestId={}, deviceId={}, operationId={}, entityType={}, entityId={}, baseVersion={}, serverVersion={}, code={}",
+                MDC.get(RequestIdFilter.MDC_KEY),
+                deviceId,
+                operation.operationId(),
+                operation.entityType(),
+                operation.entityId(),
+                operation.baseVersion(),
+                details.entityVersion(),
+                details.errorCode()
+        );
+        return persist(
+                deviceId, userId, operation, SyncOperationResultStatus.CONFLICT,
+                details.entityVersion(), details.errorCode(), details.errorMessage(), details.serverState()
+        );
+    }
+
     private SyncOperationResult persist(
             UUID deviceId,
             UUID userId,
@@ -257,23 +319,66 @@ public class SyncOperationProcessor {
             SyncOperationResultStatus status,
             Integer entityVersion,
             String code,
-            String message
+            String message,
+            JsonNode serverState
     ) {
+        String serializedState = serializeServerState(serverState);
         SyncProcessedOperation saved = processedOperationRepository.saveAndFlush(SyncProcessedOperation.record(
                 operation.operationId(), deviceId, userId, operation.entityType(), operation.entityId(), status,
-                entityVersion, truncate(code, 100), truncate(message, 500), clock.instant()
+                entityVersion, truncate(code, 100), truncate(message, 500), serializedState, clock.instant()
         ));
         return new SyncOperationResult(
                 saved.getOperationId(), saved.getResultStatus(), saved.getEntityVersion(),
-                saved.getResultCode(), saved.getResultMessage()
+                saved.getResultCode(), saved.getResultMessage(), serverState
         );
     }
 
     private SyncOperationResult alreadyApplied(SyncProcessedOperation existing) {
+        SyncOperationResultStatus status = existing.getResultStatus() == SyncOperationResultStatus.APPLIED
+                ? SyncOperationResultStatus.ALREADY_APPLIED
+                : existing.getResultStatus();
         return new SyncOperationResult(
-                existing.getOperationId(), SyncOperationResultStatus.ALREADY_APPLIED,
-                existing.getEntityVersion(), existing.getResultCode(), existing.getResultMessage()
+                existing.getOperationId(), status,
+                existing.getEntityVersion(), existing.getResultCode(), existing.getResultMessage(),
+                deserializeServerState(existing.getServerState())
         );
+    }
+
+    private UUID extractUuidField(JsonNode payload, String fieldName) {
+        if (payload == null || !payload.isObject()) {
+            return null;
+        }
+        JsonNode field = payload.get(fieldName);
+        if (field == null || !field.isString()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(field.asString());
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private String serializeServerState(JsonNode serverState) {
+        if (serverState == null || serverState.isNull()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(serverState);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException("Could not serialize conflict server state", exception);
+        }
+    }
+
+    private JsonNode deserializeServerState(String serverState) {
+        if (serverState == null || serverState.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readTree(serverState);
+        } catch (JacksonException exception) {
+            return null;
+        }
     }
 
     private void lock(UUID operationId) {
