@@ -14,6 +14,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 public interface NonConformityRepository extends JpaRepository<NonConformity, UUID> {
 
@@ -22,6 +23,26 @@ public interface NonConformityRepository extends JpaRepository<NonConformity, UU
     List<NonConformity> findAllByInspectionIdAndSeverity(UUID inspectionId, NonConformitySeverity severity);
 
     List<NonConformity> findAllByInspectionIdOrderByCreatedAtAsc(UUID inspectionId);
+
+    @Query("""
+            select n from NonConformity n, Inspection i
+            where n.inspectionId = i.id
+              and (:inspectionId is null or n.inspectionId = :inspectionId)
+              and (:severity is null or n.severity = :severity)
+              and (:status is null or n.status = :status)
+              and (:clientId is null or i.clientId = :clientId)
+              and (:technicianId is null or i.technicianId = :technicianId)
+              and (:supervisorId is null or i.supervisorId = :supervisorId)
+            order by n.serverReceivedAt asc
+            """)
+    Stream<NonConformity> streamForExport(
+            @Param("inspectionId") UUID inspectionId,
+            @Param("severity") NonConformitySeverity severity,
+            @Param("status") NonConformityStatus status,
+            @Param("clientId") UUID clientId,
+            @Param("technicianId") UUID technicianId,
+            @Param("supervisorId") UUID supervisorId
+    );
 
     @Query("""
             select n from NonConformity n, Inspection i
