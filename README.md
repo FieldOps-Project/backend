@@ -1,6 +1,30 @@
-# backend
-backend projeto fieldops
+# FieldOps Backend API
 
+API REST da plataforma **FieldOps** para planejamento, execução em campo, sincronização offline e revisão de inspeções técnicas.
+
+## Pré-requisitos e Execução Rápida
+
+- **Java 21** (Eclipse Temurin / OpenJDK 21)
+- **PostgreSQL 16** (ou **Docker** + Compose v2)
+- **Maven Wrapper** (`./mvnw` no Linux/macOS ou `.\mvnw.cmd` no Windows)
+
+### Subida local sem Docker (com PostgreSQL rodando)
+
+```text
+SPRING_PROFILES_ACTIVE=local \
+DB_URL=jdbc:postgresql://localhost:5433/fieldops \
+DB_USER=fieldops \
+DB_PASSWORD=secret \
+JWT_SECRET=segredo-local-com-pelo-menos-32-caracteres \
+./mvnw spring-boot:run
+```
+
+### Contrato OpenAPI / Swagger
+
+- **Swagger UI:** `http://localhost:8080/swagger-ui.html`
+- **OpenAPI JSON (tempo real):** `http://localhost:8080/v3/api-docs`
+- **Snapshot versionado:** [openapi/openapi.json](openapi/openapi.json) (validado por `OpenApiSnapshotTest`; para regenerar: `./mvnw test -Dtest=OpenApiSnapshotTest -DupdateOpenApi=true`).
+- **Healthcheck:** `GET /actuator/health`
 
 ## Usuarios
 
@@ -226,6 +250,13 @@ O aplicativo envia operacoes acumuladas offline por `POST /api/v1/mobile/sync/pu
 
 As operacoes sao ordenadas por `dependsOn` e executadas em transacoes independentes. Respostas, evidencias e nao conformidades sao autorizadas contra o tecnico do token; uma inspeccao de outro tecnico ou `APPROVED` e rejeitada. A tabela `sync_processed_operations` registra o resultado para que reenvios retornem `ALREADY_APPLIED` sem repetir a escrita. A resposta sempre inclui `results`, `changes`, `nextCursor` e `serverTime`.
 
+### Política de conflitos na sincronização
+
+- **Divergência de versão (`baseVersion`):** quando `baseVersion` enviada pelo dispositivo é menor/diferente da versão atual no servidor, a operação é recusada com `status = CONFLICT`, `errorCode = SYNC_VERSION_CONFLICT`, `entityVersion` atual e `serverState` (snapshot dos campos atuais no servidor). O servidor **nunca sobrescreve** o dado atual nem descarta silenciosamente o dado pendente do dispositivo.
+- **Precedência de estados terminais:** inspeções `APPROVED` (RN-076) ou `CANCELED` (RN-077) no servidor rejeitam mutações tardias com `status = CONFLICT` (`SYNC_INSPECTION_APPROVED_CONFLICT` ou `SYNC_INSPECTION_CANCELED_CONFLICT`) e `serverState` da inspeção, preservando os dados locais no app para análise do técnico.
+- **Reenvios idempotentes de conflitos:** o reenvio do mesmo `operationId` previamente marcado como `CONFLICT` mantém o status `CONFLICT`, a versão e o `serverState` persistidos em `sync_processed_operations`.
+- **Observabilidade:** conflitos são registrados em log com `requestId`, `deviceId`, `operationId`, tipo/id da entidade e versões envolvidas, sem expor conteúdo sensível.
+
 Evidencias podem ser sincronizadas em dois passos (RN-078). A operacao `INSPECTION_EVIDENCE` com `CREATE`/`UPSERT` aplica apenas os metadados e exige `mimeType`, `sizeBytes` e o `checksum` SHA-256 do arquivo; a evidencia fica com `server_received_at` preenchido e `uploaded_at` nulo ("dados enviados, foto pendente"). A operacao `UPLOAD` envia o binario em `contentBase64`, deve declarar em `dependsOn` a operacao da resposta relacionada e grava o arquivo na mesma `storage_key`. O reenvio do mesmo `evidenceId` nunca cria um segundo registro; com checksum identico o objeto nao e regravado. Uma falha de upload rejeita somente essa operacao e nao reverte as respostas ja aplicadas; o reenvio usa um novo `operationId`. Evidencia com arquivo pendente nao pode ser baixada.
 
 ### Pull incremental
@@ -291,3 +322,20 @@ A listagem usa pagina zero-based, tamanho padrao 20 e limite de 100 itens. O sor
 O reset gera uma senha temporaria aleatoria, persiste somente o hash, invalida as sessoes existentes e devolve a credencial apenas na resposta do endpoint de reset. Senhas nao sao registradas em logs nem em eventos de auditoria.
 
 Operacoes de criacao, edicao, alteracao de perfil, alteracao de situacao e reset geram eventos em `audit_events`, com autor, data, acao e valores antes/depois sem campos sensiveis. A inativacao e logica e preserva o historico do usuario.
+
+## Catálogo de Erros de Negócio
+
+Todas as falhas retornam o envelope padronizado `ApiError` (`timestamp`, `status`, `code`, `message`, `path`, `requestId`, `fieldErrors`):
+
+| HTTP | Código | Contexto |
+| --- | --- | --- |
+| `400` | `VALIDATION_ERROR`, `INVALID_REQUEST`, `INVALID_SORT`, `INVALID_COORDINATES`, `INVALID_CLIENT_DOCUMENT`, `INVALID_QR_CODE`, `INVALID_TEMPLATE_STATUS`, `SCHEDULED_FOR_REQUIRED`, `RESPONSE_ID_MISMATCH`, `SYNC_CURSOR_INVALID`, `SYNC_LIMIT_INVALID`, `SYNC_PAYLOAD_INVALID`, `SYNC_ENTITY_TYPE_UNSUPPORTED`, `SYNC_OPERATION_TYPE_UNSUPPORTED`, `SYNC_INSPECTION_ID_REQUIRED`, `EVIDENCE_FILE_DESCRIPTION_REQUIRED`, `EVIDENCE_CONTENT_REQUIRED`, `EVIDENCE_CONTENT_INVALID` | Validações de entrada, sintaxe ou parâmetros inválidos |
+| `401` | `AUTH_AUTHENTICATION_REQUIRED`, `AUTH_INVALID_CREDENTIALS`, `AUTH_INVALID_REFRESH_TOKEN`, `AUTH_INVALID_TOKEN`, `AUTH_USER_INACTIVE` | Sessão ausente, token expirado/inválido ou usuário inativo |
+| `403` | `AUTH_FORBIDDEN` | Usuário autenticado sem perfil autorizado para a operação |
+| `404` | `*_NOT_FOUND` (ex: `EQUIPMENT_NOT_FOUND`, `INSPECTION_TEMPLATE_NOT_FOUND`, `TEMPLATE_SECTION_NOT_FOUND`, `TEMPLATE_ITEM_NOT_FOUND`, `TEMPLATE_VERSION_NOT_FOUND`, `TEMPLATE_DRAFT_NOT_FOUND`) | Recurso inexistente ou fora do escopo do usuário |
+| `409` | `DATA_CONFLICT`, `EMAIL_ALREADY_EXISTS`, `EQUIPMENT_QR_CODE_ALREADY_EXISTS`, `TEMPLATE_TITLE_ALREADY_EXISTS`, `TEMPLATE_VERSION_PUBLISHED`, `INSPECTION_INVALID_TRANSITION`, `INSPECTION_RESPONSE_VERSION_CONFLICT`, `INSPECTION_RESPONSE_ALREADY_EXISTS`, `INSPECTION_RESPONSE_ID_REUSED`, `NON_CONFORMITY_ID_REUSED`, `NON_CONFORMITY_VERSION_CONFLICT`, `EVIDENCE_ID_REUSED`, `EVIDENCE_VERSION_CONFLICT`, `EVIDENCE_DELETED_CONFLICT` | Conflitos de unicidade, estado ou concorrência otimista |
+| `409` *(push)* | `SYNC_VERSION_CONFLICT`, `SYNC_INSPECTION_APPROVED_CONFLICT`, `SYNC_INSPECTION_CANCELED_CONFLICT` | Retornados por item no `SyncOperationResult` quando `status = CONFLICT` |
+| `413` | `EVIDENCE_TOO_LARGE`, `SYNC_BATCH_TOO_LARGE` | Arquivo de evidência ou lote de sync excede limite configurado |
+| `415` | `EVIDENCE_UNSUPPORTED_FORMAT` | Formato de arquivo não suportado (aceitos: JPEG e PNG) |
+| `422` | `CLIENT_INACTIVE`, `INACTIVE_SITE`, `INSPECTION_SITE_INACTIVE`, `SITE_CLIENT_MISMATCH`, `EQUIPMENT_INACTIVE`, `EQUIPMENT_REQUIRED`, `EQUIPMENT_SITE_MISMATCH`, `TECHNICIAN_NOT_ELIGIBLE`, `TEMPLATE_NOT_PUBLISHED`, `TEMPLATE_PUBLISH_INVALID`, `TEMPLATE_VERSION_NOT_PUBLISHED`, `TEMPLATE_VERSION_UNAVAILABLE`, `TEMPLATE_REORDER_MISMATCH`, `TEMPLATE_ITEM_*`, `INSPECTION_NOT_EDITABLE`, `INSPECTION_SNAPSHOT_INVALID`, `INSPECTION_CANCEL_REASON_REQUIRED`, `INSPECTION_LOCATION_INVALID`, `INSPECTION_REQUIRED_ITEMS_MISSING`, `INSPECTION_CRITICAL_NON_CONFORMITY_EVIDENCE_MISSING`, `INSPECTION_APPROVED_READ_ONLY`, `INSPECTION_REOPEN_REQUIRED`, `INSPECTION_RESPONSES_LOCKED`, `INSPECTION_ITEM_NOT_IN_CORRECTION`, `INSPECTION_ITEM_NOT_IN_SNAPSHOT`, `INSPECTION_RESPONSE_INVALID`, `EVIDENCE_READ_ONLY`, `EVIDENCE_LOCATION_INVALID`, `EVIDENCE_RESPONSE_NOT_IN_INSPECTION`, `EVIDENCE_NON_CONFORMITY_NOT_IN_INSPECTION`, `NON_CONFORMITY_ITEM_NOT_IN_INSPECTION`, `NON_CONFORMITY_RESPONSE_NOT_IN_INSPECTION`, `NON_CONFORMITY_STATUS_UNSUPPORTED` | Violações de regras de negócio |
+| `500` | `INTERNAL_ERROR` | Falha interna inesperada (sem exposição de stack trace ou SQL; correlacionada por `requestId`) |
